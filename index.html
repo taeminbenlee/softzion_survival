@@ -3,274 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>요구사항 러너 - 소프트자이온 생존 게임</title>
+    <title>요구사항 러너 - 인사고과 잔혹사</title>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
     <style>
-        :root { --main-color: #2c3e50; --hp-color: #2ecc71; --danger-color: #e74c3c; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #1a1a1a; font-family: 'Malgun Gothic', sans-serif; }
+        :root { --danger: #e74c3c; --success: #2ecc71; --gold: #f1c40f; --office-blue: #34495e; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #111; font-family: 'Malgun Gothic', sans-serif; color: #fff; }
         
-        #game-wrapper { position: relative; width: 800px; height: 400px; margin: 50px auto; outline: 5px solid #333; overflow: hidden; background: #f0f2f5; }
-        canvas { display: block; background: linear-gradient(to bottom, #e1eec3, #f05053); }
+        #game-wrapper { position: relative; width: 800px; height: 400px; margin: 50px auto; border: 4px solid #444; overflow: hidden; background: #000; }
+        canvas { display: block; }
 
-        /* HUD 스타일 */
-        .hud-container { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; padding: 15px; box-sizing: border-box; color: white; text-shadow: 1px 1px 2px black; }
-        .hp-bar-bg { width: 200px; height: 20px; background: rgba(0,0,0,0.5); border: 2px solid white; border-radius: 10px; overflow: hidden; margin-top: 5px; }
-        .hp-bar-fill { height: 100%; transition: width 0.3s ease, background-color 0.3s ease; }
-        .hp-danger { animation: blink 0.5s infinite; background-color: var(--danger-color) !important; }
+        /* UI 레이어 */
+        .hud { position: absolute; top: 0; left: 0; width: 100%; padding: 15px; box-sizing: border-box; pointer-events: none; display: flex; justify-content: space-between; z-index: 10; }
+        .hp-container { width: 150px; height: 12px; background: rgba(0,0,0,0.5); border: 1px solid #fff; margin-top: 5px; }
+        .hp-fill { height: 100%; transition: width 0.2s; background: var(--success); }
+        .hp-low { background: var(--danger) !important; animation: blink 0.5s infinite; }
 
-        /* 오버레이 */
-        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; padding: 20px; z-index: 100; }
-        .btn-info { font-size: 0.9em; color: #aaa; margin-top: 10px; }
+        /* 모달 및 오버레이 */
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
+        .promotion-modal { background: #fff; color: #333; padding: 25px; border-radius: 5px; border: 5px double var(--office-blue); width: 350px; box-shadow: 0 0 20px rgba(255,255,255,0.2); }
         
-        /* 애니메이션 효과 */
-        .level-up-toast { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #f1c40f; font-size: 28px; font-weight: bold; text-shadow: 2px 2px 4px #000; z-index: 200; pointer-events: none; animation: floatUp 2s forwards; }
-        .event-toast { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 20px; font-weight: bold; z-index: 150; animation: fadeOut 1.5s forwards; }
+        .ranking-list { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; margin: 10px 0; min-width: 250px; text-align: left; }
+        .ranking-item { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #333; }
         
-        @keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -100px); } }
-        @keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .shake { animation: shake 0.2s ease-in-out; }
-        @keyframes shake { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-5px, 5px); } 50% { transform: translate(5px, -5px); } 75% { transform: translate(-5px, -5px); } }
+        input { padding: 10px; border-radius: 5px; border: none; width: 200px; margin-bottom: 10px; font-size: 16px; }
+        button { padding: 10px 25px; background: var(--office-blue); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 15px; }
+        button:hover { background: #2c3e50; }
+        
+        @keyframes blink { 50% { opacity: 0.3; } }
     </style>
 </head>
 <body ng-controller="GameController">
 
-    <div id="game-wrapper" ng-class="{'shake': isShaking}">
+    <div id="game-wrapper">
         <canvas id="gameCanvas" width="800" height="400"></canvas>
 
         <!-- HUD -->
-        <div class="hud-container">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <strong>Lv.{{level}} {{levelName}}</strong><br>
-                    <small>"{{levelQuote}}"</small>
-                    <div class="hp-bar-bg">
-                        <div class="hp-bar-fill" ng-style="{'width': hp + '%', 'background-color': '#2ecc71'}" ng-class="{'hp-danger': hp <= 30}"></div>
-                    </div>
-                    <span>HP: {{hp}} / 100</span>
+        <div class="hud" ng-if="playerName && gameState === 'PLAYING'">
+            <div>
+                <strong>{{playerName}} ({{levelName}})</strong>
+                <div class="hp-container">
+                    <div class="hp-fill" ng-style="{'width': hp + '%'}" ng-class="{'hp-low': hp <= 30}"></div>
                 </div>
-                <div style="text-align: right;">
-                    <div>Score: {{score}}</div>
-                    <div>High: {{highScore}}</div>
-                </div>
+            </div>
+            <div style="text-align: right;">
+                <span style="font-size: 22px; color: var(--gold); font-weight: bold;">{{score}}</span><br>
+                <small>Rank #1: {{highScore}}</small>
             </div>
         </div>
 
-        <!-- 시작 화면 -->
-        <div class="overlay" ng-if="gameState === 'START'">
-            <h1 style="color: #f1c40f;">🏃 요구사항 러너</h1>
-            <p>오늘도 무사히 퇴근할 수 있을까요?</p>
-            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
-                <p>점프: [SPACE] | 슬라이딩: [↓]</p>
-                <p>시작: [ENTER]</p>
+        <!-- 1. 이름 입력 화면 -->
+        <div class="overlay" ng-if="!playerName">
+            <h1 style="color: var(--gold);">신규 입사 신청서</h1>
+            <p>이름을 입력해야 사원증이 발급됩니다.</p>
+            <input type="text" ng-model="inputName" placeholder="성함 입력" maxlength="8">
+            <button ng-click="saveName()">입사하기</button>
+        </div>
+
+        <!-- 2. 게임 시작/랭킹 -->
+        <div class="overlay" ng-if="playerName && gameState === 'START'">
+            <h1>요구사항 러너</h1>
+            <p>{{playerName}}님, 오늘의 업무가 대기 중입니다.</p>
+            
+            <div class="ranking-list">
+                <div style="text-align: center; font-weight: bold; margin-bottom: 10px; color: var(--gold);">🏆 사내 우수 사원 명단</div>
+                <div class="ranking-item" ng-repeat="r in rankings | limitTo: 5">
+                    <span>{{$index + 1}}. {{r.name}}</span>
+                    <span>{{r.score}}점</span>
+                </div>
+                <div ng-if="rankings.length === 0" style="text-align: center;">아직 퇴사자가 없습니다.</div>
+            </div>
+
+            <button ng-click="startGame()">업무 시작 (Enter)</button>
+        </div>
+
+        <!-- 3. 인사 발령 통지서 (레벨업) -->
+        <div class="overlay" ng-if="gameState === 'PROMOTION'">
+            <div class="promotion-modal">
+                <h2 style="margin-top: 0; color: var(--office-blue);">[인사 발령 통지서]</h2>
+                <hr>
+                <p>성명: <strong>{{playerName}}</strong></p>
+                <p>발령 직급: <span style="color: var(--danger); font-weight: bold;">{{levelName}}</span></p>
+                <div style="background: #f9f9f9; padding: 10px; font-size: 14px; text-align: left; border: 1px solid #ddd;">
+                    <strong>주요 업무:</strong><br>
+                    {{levelTask}}
+                </div>
+                <button ng-click="resumeGame()">확인 및 업무 복귀</button>
             </div>
         </div>
 
-        <!-- 게임 오버 -->
+        <!-- 4. 게임 오버 -->
         <div class="overlay" ng-if="gameState === 'GAMEOVER'">
-            <h1 style="color: #e74c3c;">Game Over</h1>
-            <p>"결국 요구사항에 치였습니다..."</p>
-            <p style="font-size: 1.5em;">최종 점수: {{score}}</p>
-            <p>엔터를 눌러 다시 출근(재입사)하세요.</p>
+            <h1 style="color: var(--danger);">권고사직 (Game Over)</h1>
+            <p style="background: rgba(255,0,0,0.2); padding: 10px;">"{{lastWords}}"</p>
+            <h2 style="color: var(--gold);">최종 성과: {{score}}</h2>
+            <button ng-click="startGame()">재입사 지원 (Enter)</button>
         </div>
 
-        <!-- 엔딩 화면 -->
+        <!-- 5. 엔딩 -->
         <div class="overlay" ng-if="gameState === 'ENDING'">
-            <h1 style="color: #2ecc71;">🎉 칼퇴근 성공!</h1>
-            <p>"무사히 퇴근했습니다."</p>
-            <p style="color: #bdc3c7;">하지만 내일도 출근입니다...</p>
-            <button onclick="location.reload()" style="padding: 10px 20px; cursor: pointer;">내일 또 출근하기</button>
+            <h1 style="color: var(--success);">🎉 전설의 퇴사자</h1>
+            <p>1000점 달성! 이제 자유의 몸입니다.</p>
+            <button ng-click="startGame()">다시 입사하기</button>
         </div>
-
-        <!-- 토스트 알림 -->
-        <div class="level-up-toast" ng-if="showLevelUp">LEVEL UP!</div>
-        <div class="event-toast" ng-if="eventMsg" ng-style="{'background-color': eventColor, 'color': 'white'}">{{eventMsg}}</div>
     </div>
 
     <script>
         const app = angular.module('RunnerApp', []);
 
-        app.controller('GameController', function($scope, $timeout, $interval) {
+        app.controller('GameController', function($scope, $timeout) {
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
-            
-            // --- 초기 설정 ---
-            $scope.gameState = 'START';
-            $scope.hp = 100;
-            $scope.score = 0;
-            $scope.level = 1;
-            $scope.highScore = localStorage.getItem('seniorRunnerHigh') || 0;
-            $scope.isShaking = false;
 
-            const LEVELS = [
-                { lv: 1, name: "신입", score: 0, quote: "야근이 아직 낯섭니다" },
-                { lv: 2, name: "주니어", score: 100, quote: "야근에 적응하기 시작했습니다" },
-                { lv: 3, name: "미들", score: 200, quote: "요구사항의 진짜 의미를 추론합니다" },
-                { lv: 4, name: "시니어", score: 300, quote: "회의 중 핵심만 듣습니다" },
-                { lv: 5, name: "선임", score: 400, quote: "일정 산정을 시작했습니다" },
-                { lv: 6, name: "수석", score: 500, quote: "표정 변화가 사라졌습니다" },
-                { lv: 7, name: "연구소장", score: 600, quote: "일정을 보고도 웃을 수 있습니다" },
-                { lv: 8, name: "CTO", score: 700, quote: "모든 문제를 구조 문제로 해석합니다" },
-                { lv: 9, name: "대표", score: 800, quote: "5분이면 되는 거 아니에요?" }
+            $scope.playerName = localStorage.getItem('runner_name');
+            $scope.highScore = localStorage.getItem('runner_highscore') || 0;
+            $scope.rankings = JSON.parse(localStorage.getItem('runner_rankings') || '[]');
+            $scope.gameState = 'START';
+            $scope.level = 1;
+            $scope.hp = 100;
+
+            const levelData = [
+                { title: "신입", bg: "#2c3e50", task: "숨만 쉬어도 긴장되는 시기입니다. 시키는 일만 잘하면 되지만, 시키는 일이 뭔지 모르는 게 함정." },
+                { title: "주니어", bg: "#1e3799", task: "슬슬 버그를 양산하기 시작합니다. 구글링과 복사 붙여넣기가 업무의 80%를 차지합니다." },
+                { title: "미들", bg: "#0c2461", task: "기획자의 의도를 파악하기 시작했으나, 파악할수록 가슴이 답답해집니다. 본격적인 야근의 시작." },
+                { title: "시니어", bg: "#b71540", task: "후배의 코드를 보며 한숨을 쉽니다. 일정 산정 시 '안 된다'는 말을 가장 많이 합니다." },
+                { title: "선임", bg: "#60a3bc", task: "회의실에 들어가면 나오지 못합니다. 코드보다 파워포인트와 엑셀을 더 많이 만집니다." },
+                { title: "수석", bg: "#0a3d62", task: "해탈의 경지입니다. 어떤 요구사항이 와도 무표정으로 '네'라고 답하며 속으론 욕을 합니다." },
+                { title: "연구소장", bg: "#3c6382", task: "기술적 부채를 해결하겠다고 선언하지만, 본인이 부채를 가장 많이 만듭니다." },
+                { title: "CTO", bg: "#079992", task: "개발자들의 주적입니다. 갑자기 신기술을 도입하자며 모든 판을 뒤엎기 시작합니다." },
+                { title: "대표", bg: "#000000", task: "최종 보스입니다. '5분이면 되죠?'라는 필살기로 모든 직원의 멘탈을 파괴합니다." }
             ];
 
-            const OBS_TYPES = {
-                JUMP: { list: ["간단한 수정", "긴급 요청", "오늘 배포", "요구사항 변경", "추가 개발 요청", "원래 기능 아닌가요?"], dmg: 10, color: "#fff" },
-                SLIDE: { list: ["회의", "주간보고", "교육 참석", "워크샵", "타운홀 미팅", "전사 공지"], dmg: 15, color: "#f1c40f" },
-                BOSS: { list: ["[고객] 추가 비용은 없죠?", "[PM] 일정은 그대로 갈게요", "[기획] 간단한 수정입니다", "[대표] 5분이면 되는 거 아니에요?", "[고객] 근데 모바일도 지원되죠?"], dmg: 40, color: "#e74c3c" }
+            $scope.levelName = levelData[0].title;
+            $scope.levelTask = levelData[0].task;
+
+            $scope.saveName = function() {
+                if ($scope.inputName) {
+                    $scope.playerName = $scope.inputName;
+                    localStorage.setItem('runner_name', $scope.playerName);
+                }
             };
 
-            // --- 게임 객체 ---
-            let player = {
-                x: 80, y: 300, w: 40, h: 60, dy: 0, 
-                jumpPower: 14, gravity: 0.7, jumpCount: 0,
-                isSliding: false, slideH: 30, baseH: 60
-            };
-
+            let player = { x: 80, y: 300, w: 30, h: 55, dy: 0, jumpPower: 14, gravity: 0.8, jumpCount: 0, isSliding: false };
             let obstacles = [];
-            let gameSpeed = 5;
+            let gameSpeed = 6;
             let frameCount = 0;
-            let lastEventScore = 0;
             let animationId;
 
-            // --- 게임 로직 ---
-
-            function init() {
-                $scope.hp = 100;
-                $scope.score = 0;
-                $scope.level = 1;
-                $scope.updateLevelInfo();
-                gameSpeed = 5.5;
-                obstacles = [];
-                player.y = 300;
-                player.dy = 0;
-                frameCount = 0;
-                lastEventScore = 0;
+            function initGame() {
+                $scope.hp = 100; $scope.score = 0; $scope.level = 1; gameSpeed = 6.5;
+                obstacles = []; player.y = 300; player.dy = 0; player.jumpCount = 0; frameCount = 0;
+                updateLevelInfo();
             }
 
-            $scope.updateLevelInfo = function() {
-                let current = LEVELS.find(l => l.lv === $scope.level);
-                $scope.levelName = current.name;
-                $scope.levelQuote = current.quote;
+            function updateLevelInfo() {
+                const d = levelData[$scope.level - 1];
+                $scope.levelName = d.title;
+                $scope.levelTask = d.task;
+            }
+
+            $scope.startGame = function() {
+                initGame();
+                $scope.gameState = 'PLAYING';
+                update();
             };
 
-            function triggerRandomEvent() {
-                const events = [
-                    { msg: "☕ 커피 수혈 +10", hp: 10, color: "#6f4e37" },
-                    { msg: "🍕 야식 지원 +15", hp: 15, color: "#e67e22" },
-                    { msg: "🎉 회의 취소 +20", hp: 20, color: "#2ecc71" },
-                    { msg: "😭 운영 장애 -15", hp: -15, color: "#c0392b" },
-                    { msg: "📞 고객사 전화 -10", hp: -10, color: "#d35400" }
-                ];
-                const evt = events[Math.floor(Math.random() * events.length)];
-                $scope.hp = Math.min(100, Math.max(0, $scope.hp + evt.hp));
-                $scope.eventMsg = evt.msg;
-                $scope.eventColor = evt.color;
-                $timeout(() => { $scope.eventMsg = null; }, 1500);
-            }
+            $scope.resumeGame = function() {
+                $scope.gameState = 'PLAYING';
+                update();
+            };
 
             function spawnObstacle() {
-                // 초반 30초(프레임 환산 약 1800프레임) 또는 점수 200점 이하 보스 출현 제한
-                const canBoss = $scope.score > 200 && Math.random() < 0.15;
-                const isSlide = !canBoss && Math.random() < 0.3;
+                const isBoss = Math.random() < 0.25; // 보스 확률 25% 상향
+                const isSlide = !isBoss && Math.random() < 0.35;
                 
-                let type = "JUMP";
-                if (canBoss) type = "BOSS";
-                else if (isSlide) type = "SLIDE";
+                let text = "";
+                if (isBoss) {
+                    const bosses = [
+                        "아 근데 처음부터 다시 갈게요", "이거 내일 아침까지 가능하죠?", 
+                        "기능 다 빼고 일정 당깁시다", "전체 디자인 갈아엎죠", 
+                        "근데 모바일도 지원되죠?", "5분이면 되는 거 아녜요?"
+                    ];
+                    text = bosses[Math.floor(Math.random() * bosses.length)];
+                } else if (isSlide) {
+                    text = ["회의 참석", "주간 보고", "워크샵", "전사 공지", "타운홀 미팅"][Math.floor(Math.random() * 5)];
+                } else {
+                    text = ["간단한 수정", "긴급 요청", "요구사항 변경", "버그 수정", "데이터 추출"][Math.floor(Math.random() * 5)];
+                }
 
-                const text = OBS_TYPES[type].list[Math.floor(Math.random() * OBS_TYPES[type].list.length)];
-                ctx.font = type === "BOSS" ? "bold 20px Arial" : "15px Arial";
+                ctx.font = isBoss ? "bold 16px Arial" : "14px Arial";
                 const w = ctx.measureText(text).width + 30;
 
-                const newObs = {
-                    x: canvas.width + 100,
-                    y: type === "SLIDE" ? 220 : (type === "BOSS" ? 230 : 330),
-                    w: w,
-                    h: type === "BOSS" ? 100 : 40,
-                    text: text,
-                    type: type,
-                    speed: gameSpeed,
-                    dmg: OBS_TYPES[type].dmg
-                };
-
-                // 간격 보장
-                if (obstacles.length > 0) {
-                    const last = obstacles[obstacles.length - 1];
-                    if (newObs.x - (last.x + last.w) < 250) return;
-                }
-                
-                obstacles.push(newObs);
+                obstacles.push({
+                    x: canvas.width + 50,
+                    y: isSlide ? 230 : (isBoss ? 240 : 325),
+                    w: w, h: isBoss ? 100 : 35,
+                    text: text, isBoss: isBoss, isSlide: isSlide,
+                    speed: gameSpeed, dmg: isBoss ? 45 : (isSlide ? 15 : 10)
+                });
             }
 
             function update() {
                 if ($scope.gameState !== 'PLAYING') return;
 
-                // 엔딩 조건
-                if ($scope.score >= 1000) {
-                    $scope.gameState = 'ENDING';
-                    $scope.$apply();
-                    return;
-                }
-
-                // 플레이어 물리
                 player.dy += player.gravity;
                 player.y += player.dy;
 
-                const groundY = 360 - (player.isSliding ? player.slideH : player.baseH);
-                if (player.y > groundY) {
-                    player.y = groundY;
-                    player.dy = 0;
-                    player.jumpCount = 0;
-                }
+                const groundY = player.isSliding ? 330 : 305;
+                if (player.y > groundY) { player.y = groundY; player.dy = 0; player.jumpCount = 0; }
 
-                // 장애물 업데이트
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     let o = obstacles[i];
                     o.x -= o.speed;
 
-                    // 충돌 감지
-                    const pRealH = player.isSliding ? player.slideH : player.baseH;
                     if (player.x < o.x + o.w && player.x + player.w > o.x &&
-                        player.y < o.y + o.h && player.y + pRealH > o.y) {
-                        
+                        player.y < o.y + o.h && player.y + (player.isSliding?30:55) > o.y) {
                         $scope.hp -= o.dmg;
+                        $scope.lastWords = o.text;
                         obstacles.splice(i, 1);
-                        $scope.isShaking = true;
-                        $timeout(() => $scope.isShaking = false, 200);
-
-                        if ($scope.hp <= 0) {
-                            $scope.hp = 0;
-                            $scope.gameState = 'GAMEOVER';
-                            if ($scope.score > $scope.highScore) {
-                                $scope.highScore = $scope.score;
-                                localStorage.setItem('seniorRunnerHigh', $scope.highScore);
-                            }
-                        }
+                        if ($scope.hp <= 0) gameOver();
                         $scope.$apply();
                         continue;
                     }
 
                     if (o.x + o.w < 0) {
                         obstacles.splice(i, 1);
-                        $scope.$apply(() => {
-                            $scope.score += 10;
-                            // 100점마다 이벤트 및 레벨업 체크
-                            if ($scope.score > 0 && $scope.score % 100 === 0 && $scope.score !== lastEventScore) {
-                                lastEventScore = $scope.score;
-                                triggerRandomEvent();
-                                if ($scope.level < 9) {
-                                    $scope.level++;
-                                    $scope.updateLevelInfo();
-                                    $scope.showLevelUp = true;
-                                    $timeout(() => $scope.showLevelUp = false, 2000);
-                                    gameSpeed = Math.min(12, gameSpeed + 0.8);
-                                }
-                            }
-                        });
+                        $scope.score += 10;
+                        if ($scope.score > 0 && $scope.score % 100 === 0) {
+                            $scope.gameState = 'PROMOTION';
+                            $scope.level = Math.min(9, $scope.level + 1);
+                            gameSpeed += 2.5; // 속도 대폭 상향
+                            updateLevelInfo();
+                        }
+                        $scope.$apply();
                     }
                 }
 
-                if (frameCount % 60 === 0) spawnObstacle();
+                if (frameCount % Math.max(25, 75 - (gameSpeed * 3)) === 0) spawnObstacle();
+                if ($scope.score >= 1000) { $scope.gameState = 'ENDING'; saveRanking(); }
 
                 frameCount++;
                 draw();
@@ -278,64 +247,62 @@
             }
 
             function draw() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = levelData[$scope.level - 1].bg;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#333"; ctx.fillRect(0, 360, canvas.width, 40);
 
-                // 바닥 그리기
-                ctx.fillStyle = "#95a5a6";
-                ctx.fillRect(0, 360, canvas.width, 40);
-                
-                // 플레이어 그리기
-                ctx.fillStyle = player.isSliding ? "#f39c12" : "#3498db";
-                const pHeight = player.isSliding ? player.slideH : player.baseH;
-                ctx.fillRect(player.x, player.y, player.width, pHeight);
-                // 플레이어 눈 (방향 표시)
-                ctx.fillStyle = "white";
-                ctx.fillRect(player.x + 25, player.y + 10, 8, 8);
+                // 캐릭터
+                const px = player.x, py = player.y;
+                ctx.fillStyle = "#ffdbac"; ctx.fillRect(px + 10, py, 15, 15);
+                ctx.fillStyle = player.isSliding ? "#e67e22" : "#3498db";
+                if (player.isSliding) { ctx.fillRect(px, py + 15, 40, 20); }
+                else {
+                    ctx.fillRect(px + 5, py + 15, 25, 30);
+                    ctx.fillStyle = "#2c3e50"; ctx.fillRect(px + 5, py + 45, 10, 15); ctx.fillRect(px + 20, py + 45, 10, 15);
+                }
 
-                // 장애물 그리기
+                // 장애물
                 obstacles.forEach(o => {
-                    ctx.fillStyle = (o.type === "BOSS") ? "#c0392b" : (o.type === "SLIDE" ? "#f1c40f" : "#ffffff");
-                    ctx.strokeStyle = "#2c3e50";
-                    ctx.lineWidth = 2;
-                    
-                    // 박스 및 텍스트
+                    ctx.fillStyle = o.isBoss ? "#e74c3c" : (o.isSlide ? "#f1c40f" : "#fff");
                     ctx.fillRect(o.x, o.y, o.w, o.h);
-                    ctx.strokeRect(o.x, o.y, o.w, o.h);
-                    
-                    ctx.fillStyle = (o.type === "JUMP") ? "#2c3e50" : "#fff";
-                    ctx.font = o.type === "BOSS" ? "bold 16px Arial" : "14px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText(o.text, o.x + o.w/2, o.y + o.h/1.6);
+                    ctx.fillStyle = (o.isBoss || o.isSlide) ? "#fff" : "#333";
+                    ctx.font = o.isBoss ? "bold 14px Arial" : "13px Arial";
+                    ctx.textAlign = "center"; ctx.fillText(o.text, o.x + o.w/2, o.y + o.h/1.6);
                 });
             }
 
-            // --- 조작 핸들러 ---
+            function gameOver() {
+                $scope.gameState = 'GAMEOVER';
+                cancelAnimationFrame(animationId);
+                saveRanking();
+            }
+
+            function saveRanking() {
+                if ($scope.score > $scope.highScore) {
+                    $scope.highScore = $scope.score;
+                    localStorage.setItem('runner_highscore', $scope.highScore);
+                }
+                $scope.rankings.push({ name: $scope.playerName, score: $scope.score });
+                $scope.rankings.sort((a, b) => b.score - a.score);
+                $scope.rankings = $scope.rankings.slice(0, 5);
+                localStorage.setItem('runner_rankings', JSON.stringify($scope.rankings));
+            }
+
             window.addEventListener('keydown', e => {
-                if ($scope.gameState === 'PLAYING') {
-                    if (e.code === 'Space' && player.jumpCount < 3) {
-                        player.isSliding = false;
-                        player.dy = -player.jumpPower;
-                        player.jumpCount++;
-                    }
-                    if (e.code === 'ArrowDown') {
-                        if (player.jumpCount === 0) player.isSliding = true;
-                    }
-                }
                 if (e.code === 'Enter') {
-                    if ($scope.gameState === 'START' || $scope.gameState === 'GAMEOVER') {
-                        init();
-                        $scope.gameState = 'PLAYING';
-                        $scope.$apply();
-                        update();
-                    }
+                    if ($scope.gameState === 'START' || $scope.gameState === 'GAMEOVER') $scope.$apply(() => $scope.startGame());
+                    if ($scope.gameState === 'PROMOTION') $scope.$apply(() => $scope.resumeGame());
                 }
+                if ($scope.gameState === 'PLAYING') {
+                    if (e.code === 'Space' && player.jumpCount < 2) {
+                        player.dy = -player.jumpPower; player.jumpCount++; player.isSliding = false;
+                    }
+                    if (e.code === 'ArrowDown') player.isSliding = true;
+                }
+                if (['Space', 'ArrowDown', 'ArrowUp'].includes(e.code)) e.preventDefault();
             });
-
-            window.addEventListener('keyup', e => {
-                if (e.code === 'ArrowDown') player.isSliding = false;
-            });
-
-            draw(); // 초기 프레임
+            window.addEventListener('keyup', e => { if (e.code === 'ArrowDown') player.isSliding = false; });
+            draw();
         });
     </script>
 </body>
