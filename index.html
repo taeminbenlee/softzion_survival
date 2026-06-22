@@ -188,14 +188,26 @@
             function spawnObstacle() {
                 const isBoss = Math.random() < 0.25;
                 const isSlide = !isBoss && Math.random() < 0.35;
+                
                 let text = isBoss ? BOSS_LIST[Math.floor(Math.random() * BOSS_LIST.length)] : 
                           (isSlide ? SLIDE_LIST[Math.floor(Math.random() * SLIDE_LIST.length)] : 
                            JUMP_LIST[Math.floor(Math.random() * JUMP_LIST.length)]);
-
+            
+                // 글자 길이를 측정해서 박스 너비를 결정합니다.
+                ctx.font = "bold 16px 'Malgun Gothic'";
+                const textWidth = ctx.measureText(text).width;
+                const boxWidth = textWidth + 30; // 양옆 여백 추가
+            
                 obstacles.push({
-                    x: canvas.width + 50, y: isSlide ? 230 : (isBoss ? 230 : 310),
-                    w: 140, h: isBoss ? 110 : 50, text: text, isBoss: isBoss, isSlide: isSlide,
-                    speed: gameSpeed, dmg: isBoss ? 35 : 15
+                    x: canvas.width + 50, 
+                    y: isSlide ? 230 : (isBoss ? 210 : 310), // 높이 살짝 조정
+                    w: boxWidth, 
+                    h: isBoss ? 130 : 50, 
+                    text: text, 
+                    isBoss: isBoss, 
+                    isSlide: isSlide,
+                    speed: gameSpeed, 
+                    dmg: isBoss ? 35 : 15
                 });
             }
 
@@ -246,32 +258,67 @@
             }
 
             function draw() {
-                const d = levelData[Math.min($scope.level - 1, levelData.length - 1)];
-                ctx.fillStyle = d.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#333"; ctx.fillRect(0, 360, canvas.width, 40);
-
+              const d = levelData[Math.min($scope.level - 1, levelData.length - 1)];
+                    ctx.fillStyle = d.bg; 
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 바닥 (아스팔트/사무실 바닥 느낌)
+                    ctx.fillStyle = "#34495e"; 
+                    ctx.fillRect(0, 360, canvas.width, 40);
                 // 플레이어
                 ctx.fillStyle = player.isSliding ? "#e67e22" : "#3498db";
                 ctx.fillRect(player.x, player.y, player.isSliding ? 40 : 30, player.isSliding ? 25 : 55);
 
                 // 장애물 그리기
-                obstacles.forEach(o => {
-                    // 장애물 본체 (가독성 높은 색상 조합)
-                    let boxColor = "#fff", textColor = "#000", border = "#2c3e50";
-                    if (o.isBoss) { boxColor = "#e74c3c"; textColor = "#fff"; border = "#000"; }
-                    if (o.isSlide) { boxColor = "#f1c40f"; textColor = "#000"; border = "#d35400"; }
-
+               obstacles.forEach(o => {
+                    let boxColor, textColor, borderColor;
+                    
+                    if (o.isBoss) {
+                        boxColor = "#e74c3c"; // 긴급 (강렬한 빨강)
+                        textColor = "#ffffff";
+                        borderColor = "#000000";
+                    } else if (o.isSlide) {
+                        boxColor = "#f1c40f"; // 회의/보고 (노랑 포스트잇)
+                        textColor = "#000000";
+                        borderColor = "#d35400";
+                    } else {
+                        boxColor = "#ecf0f1"; // 일반 업무 (하얀 서류)
+                        textColor = "#2c3e50";
+                        borderColor = "#95a5a6";
+                    }
+            
+                    // 박스 본체 그리기
                     ctx.fillStyle = boxColor;
                     ctx.fillRect(o.x, o.y, o.w, o.h);
-                    ctx.strokeStyle = border;
-                    ctx.lineWidth = 3;
+                    
+                    // 박스 테두리 (입체감)
+                    ctx.strokeStyle = borderColor;
+                    ctx.lineWidth = 2;
                     ctx.strokeRect(o.x, o.y, o.w, o.h);
-
-                    // 장애물 위 텍스트 (작아서 안보일 수 있으므로 최소한으로만 표시)
+            
+                    // 글자 그리기 (구체적인 업무 내용 복구)
                     ctx.fillStyle = textColor;
-                    ctx.font = "bold 14px Arial";
+                    ctx.font = "bold 16px 'Malgun Gothic'";
                     ctx.textAlign = "center";
-                    ctx.fillText(o.isBoss ? "!!! 위기 !!!" : "업무", o.x + o.w/2, o.y + o.h/1.6);
+                    ctx.textBaseline = "middle";
+                    
+                    // 글자 외곽선 (작은 글씨 가독성 확보)
+                    if (o.isBoss) {
+                        ctx.strokeStyle = "rgba(0,0,0,0.5)";
+                        ctx.lineWidth = 1;
+                        ctx.strokeText(o.text, o.x + o.w/2, o.y + o.h/2);
+                    }
+            
+                    ctx.fillText(o.text, o.x + o.w/2, o.y + o.h/2);
+                    
+                    // 보스 장애물인 경우 상단에 'URGENT' 태그 추가
+                    if (o.isBoss) {
+                        ctx.fillStyle = "#000";
+                        ctx.fillRect(o.x, o.y, 60, 20);
+                        ctx.fillStyle = "#fff";
+                        ctx.font = "bold 10px Arial";
+                        ctx.fillText("URGENT", o.x + 30, o.y + 10);
+                    }
                 });
             }
 
