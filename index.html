@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>요구사항 러너 - 하이퍼 에디션</title>
+    <title>소프트자이온 생존게임</title>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
     <style>
         :root { --danger: #e74c3c; --success: #2ecc71; --gold: #f1c40f; --office: #34495e; --panel: #2c3e50; }
@@ -30,9 +30,9 @@
         .hp-fill { height: 100%; background: var(--success); transition: width 0.2s; }
     </style>
 </head>
-<body ng-controller="GameController">
+<body>
 
-    <div id="main-layout">
+    <div id="main-layout" ng-controller="GameController">
         <div id="game-container">
             <canvas id="gameCanvas" width="800" height="400"></canvas>
 
@@ -49,8 +49,15 @@
             <div class="overlay" ng-if="!playerName">
                 <h1 style="color: var(--gold);">신규 입사 신청서</h1>
                 <p>사원증에 이름을 기재해주세요.</p>
-                <input type="text" ng-model="inputName" placeholder="성함 (최대 8자)" maxlength="8">
-                <button ng-click="saveName()">사원증 발급 (입사)</button>
+                <input
+                    type="text"
+                    id="playerNameInput"
+                    placeholder="성함 (최대 8자)"
+                    maxlength="8">
+
+                <button ng-click="saveName()">
+                    사원증 발급 (입사)
+                </button>
             </div>
 
             <!-- 업무 시작 전 -->
@@ -133,15 +140,24 @@
             ];
 
             $scope.saveName = function() {
-                console.log('saveNames')
-                 if ($scope.inputName && $scope.inputName.trim() !== "") {
-                        $scope.playerName = $scope.inputName.trim();
-                        localStorage.setItem('runner_name', $scope.playerName);
-                        $scope.gameState = 'START';
-                        $scope.$apply();
-                        console.log("playerName=", $scope.playerName);
-                        console.log("scope=", $scope);
-                    }
+
+                const input = document.getElementById('playerNameInput');
+                const name = input.value.trim();
+
+                console.log(name);
+
+                if (!name) {
+                    alert('이름을 입력하세요.');
+                    return;
+                }
+
+                $scope.playerName = name;
+
+                localStorage.setItem('runner_name', name);
+
+                $scope.gameState = 'START';
+
+                $scope.$applyAsync();
             };
 
             let player = { x: 80, y: 300, w: 30, h: 55, dy: 0, jumpPower: 14, gravity: 0.8, jumpCount: 0, isSliding: false };
