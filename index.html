@@ -148,16 +148,64 @@
             $scope.level = 1; $scope.hp = 100; $scope.score = 0;
 
             const levelData = [
-                { title: "신입", bg: "#2c3e50", task: "일단 뛰세요. 생각은 나중에 합니다." },
-                { title: "주니어", bg: "#1e3799", task: "구글링 속도가 업무 속도입니다." },
-                { title: "미들", bg: "#0c2461", task: "이제 남의 버그가 보이기 시작합니다." },
-                { title: "시니어", bg: "#b71540", task: "코드보다 회의가 더 힘듭니다." },
-                { title: "수석", bg: "#4b6584", task: "말 안 해도 다 압니다. (탈해탈)" }
+                { 
+                    title: "신입 (사원/대리)", 
+                    bg: "#2c3e50", // 차분한 새벽 출근길
+                    task: "시키는 건 다 합니다. 아직은 의욕이 앞서며, 퇴근 후 운동도 꿈꿉니다." 
+                },
+                { 
+                    title: "주니어 (과장)", 
+                    bg: "#1e3799", // 업무가 몰아치는 오전
+                    task: "구글링과 챗GPT가 나의 영혼입니다. 슬슬 내 코드가 부끄러워지기 시작합니다." 
+                },
+                { 
+                    title: "미들 (차장)", 
+                    bg: "#0c2461", // 피크 타임의 오후
+                    task: "밑에서 치이고 위에서 눌립니다. 버그를 고치면 버그가 두 개 생기는 마법을 부립니다." 
+                },
+                { 
+                    title: "시니어 (팀장/부장)", 
+                    bg: "#b71540", // 노을 지는 야근의 시작
+                    task: "코딩보다 엑셀과 PPT를 더 많이 봅니다. 회의실에서 탈출하는 법을 연구합니다." 
+                },
+                { 
+                    title: "수석 (본부장/이사)", 
+                    bg: "#4b6584", // 늦은 밤 사무실
+                    task: "모든 코드가 엉망으로 보이지만 고칠 기운이 없습니다. 인자한 미소로 위기를 넘깁니다." 
+                },
+                { 
+                    title: "최종 보스 (CTO)", 
+                    bg: "#000000", // 심야, 모든 것이 끝난 암흑
+                    task: "자, 5분이면 되는 거 아녜요? (전 직원의 적이자 끝판왕 단계)" 
+                }
             ];
 
-            const JUMP_LIST = ["요구사항 변경", "버그 수정", "API 연동", "DB 튜닝", "UI 깨짐", "배포 오류", "코드 리뷰", "로그 확인", "사내 보안"];
-            const SLIDE_LIST = ["주간 회의", "티타임", "전사 교육", "점심 회식", "사내 워크샵", "연봉 협상", "보고서 작성"];
-            const BOSS_LIST = ["전면 재검토", "이거 내일까지", "5분 컷 가능?", "모바일도 해주세요", "기존 영향도 체크"];
+            // [점프] 짧고 강렬하게 치고 들어오는 기술적 문제/잔업
+            const JUMP_LIST = [
+                "Git 충돌 발생", "NullPointer 에러", "AWS 서버 터짐", "IE 브라우저 대응", 
+                "CSS 1px 어긋남", "배포 후 에러 감지", "슬랙 알림 폭탄", "DB 커넥션 부족",
+                "로그에 찍힌 에러", "하드코딩의 유혹", "레거시 코드 분석", "npm 보안 경고",
+                "API 응답 500 에러", "로컬에선 됐는데요", "빌드 스크립트 오류", "의존성 지옥(Hell)",
+                "사무실 자리 이동", "사내 망 보안 점검", "토큰 만료(401)", "정기 점검 공지"
+            ];
+            
+            // [슬라이딩] 몸을 낮춰야 지나가는 회의/보고/사회생활
+            const SLIDE_LIST = [
+                "긴급 TFT 소집", "주간 보고서 작성", "운영 위원회 참석", "보안 교육 미이수",
+                "불필요한 티타임", "점심 회식(강제)", "강제 워크샵 준비", "VPN 연결 끊김",
+                "PM과의 면담", "타 부서 협조 요청", "연말 성과 평가", "사무실 대청소",
+                "기획안 독해 중", "품의서 결재 대기", "사내 메신저 점검", "개발 표준 가이드",
+                "화면 설계서 수정", "중간 검수 미팅", "자바 버전 업데이트", "근태 기록 누락"
+            ];
+            
+            // [보스/대형] 피하기 어렵고 데미지가 큰 고객사/상사/대형 사고
+            const BOSS_LIST = [
+                "고객사 현장 지원", "기능 전면 재검토", "ASAP: 내일 오픈", "운영 DB 삭제 실수",
+                "대표님 지시 사항", "기획서 통째로 변경", "모바일도 당연히 되죠?", "기존 영향도 0% (거짓)",
+                "검수 기간(금금금)", "솔루션 소스 유실", "이거 5분 컷이죠?", "로그가 안 남았어요",
+                "보안 취약점 발견", "동시 접속자 폭주", "상용 서버 롤백", "기능 다 빼고 일정 당기기",
+                "인수인계 문서 없음", "타 부서 잘못 덤탱이", "외주 업체 먹튀", "고객사 담당자 변경"
+            ];
 
             let player = { x: 80, y: 300, w: 30, h: 55, dy: 0, jumpPower: 14, gravity: 0.8, jumpCount: 0, isSliding: false };
             let obstacles = [];
@@ -237,21 +285,32 @@
 
                     // 장애물 통과 완료! (여기서 하단 로그 업데이트)
                     if (o.x + o.w < 0) {
-                        $scope.currentTask = "✅ 완료: " + o.text; // 하단 로그에 표시
+                        let emoji = "✅";
+                        if (o.isBoss) emoji = "🔥 위기탈출:";
+                        else if (o.isSlide) emoji = "🧘 존버완료:";
+                        
+                         $scope.currentTask = `${emoji} [${o.text}] 처리 완료!`;
                         const logBar = document.querySelector('.log-text');
                         logBar.style.color = '#2ecc71'; // 성공 시 초록색으로 잠깐 변경
                         setTimeout(() => { logBar.style.color = '#fff'; }, 500);
                         
                         obstacles.splice(i, 1);
                         $scope.score += 10;
-                        if ($scope.score % 100 === 0) { 
-                            $scope.gameState = 'PROMOTION'; $scope.level++; gameSpeed += 1.5; $scope.updateLevel(); 
+                        if ($scope.score > 0 && $scope.score % 100 === 0) { 
+                            if ($scope.level < levelData.length) { // 데이터가 있는 만큼만 레벨업
+                                $scope.gameState = 'PROMOTION'; 
+                                $scope.level++; 
+                                gameSpeed += 1.5; 
+                                $scope.updateLevel();
+                            }
                         }
                         $scope.$apply();
                     }
                 }
 
-                if (frameCount % 80 === 0) spawnObstacle();
+                let spawnInterval = Math.max(30, 80 - ($scope.level * 8)); // 레벨이 높을수록 장애물이 더 자주 나옴
+                if (frameCount % spawnInterval === 0) spawnObstacle();
+
                 frameCount++;
                 draw();
                 animationId = requestAnimationFrame(update);
