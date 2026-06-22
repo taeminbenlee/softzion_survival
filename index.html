@@ -180,8 +180,8 @@
             $scope.startGame = function() { initGame(); $scope.gameState = 'PLAYING'; update(); };
             $scope.resumeGame = function() { $scope.gameState = 'PLAYING'; update(); };
 
-            function spawnObstacle() {
-                const isBoss = Math.random() < 0.28; // 보스 확률 약간 상향
+           function spawnObstacle() {
+                const isBoss = Math.random() < 0.28;
                 const isSlide = !isBoss && Math.random() < 0.38;
                 
                 let text = "";
@@ -192,14 +192,22 @@
                 } else {
                     text = JUMP_LIST[Math.floor(Math.random() * JUMP_LIST.length)];
                 }
-
-                ctx.font = isBoss ? "bold 16px Arial" : "14px Arial";
-                const w = ctx.measureText(text).width + 30;
-
+            
+                // 폰트 크기 키움 (보스는 22px, 일반은 18px)
+                ctx.font = isBoss ? "bold 22px 'Malgun Gothic'" : "bold 18px 'Malgun Gothic'";
+                const textWidth = ctx.measureText(text).width;
+                const w = textWidth + 40; // 좌우 여백 충분히
+            
                 obstacles.push({
-                    x: canvas.width + 50, y: isSlide ? 230 : (isBoss ? 240 : 325),
-                    w: w, h: isBoss ? 100 : 35, text: text, isBoss: isBoss, isSlide: isSlide,
-                    speed: gameSpeed, dmg: isBoss ? 40 : 10
+                    x: canvas.width + 50, 
+                    y: isSlide ? 220 : (isBoss ? 230 : 320), // y값 살짝 조정
+                    w: w, 
+                    h: isBoss ? 110 : 45, // 박스 높이 키움
+                    text: text, 
+                    isBoss: isBoss, 
+                    isSlide: isSlide,
+                    speed: gameSpeed, 
+                    dmg: isBoss ? 40 : 10
                 });
             }
 
@@ -267,25 +275,48 @@
     draw();
     animationId = requestAnimationFrame(update);
 }
+function draw() {
+    const d = levelData[Math.min($scope.level - 1, levelData.length - 1)];
+    ctx.fillStyle = d.bg; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 바닥선 디자인 추가 (선택 사항)
+    ctx.fillStyle = "#333"; 
+    ctx.fillRect(0, 360, canvas.width, 40);
 
-            function draw() {
-                const d = levelData[Math.min($scope.level - 1, levelData.length - 1)];
-                ctx.fillStyle = d.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#333"; ctx.fillRect(0, 360, canvas.width, 40);
+    // 캐릭터 그리기 (기존 코드와 동일)
+    const px = player.x, py = player.y;
+    ctx.fillStyle = "#ffdbac"; ctx.fillRect(px + 10, py, 15, 15);
+    ctx.fillStyle = player.isSliding ? "#e67e22" : "#3498db";
+    if (player.isSliding) { ctx.fillRect(px, py + 15, 40, 20); }
+    else { ctx.fillRect(px + 5, py + 15, 25, 30); ctx.fillStyle = "#2c3e50"; ctx.fillRect(px + 5, py + 45, 10, 15); ctx.fillRect(px + 20, py + 45, 10, 15); }
 
-                const px = player.x, py = player.y;
-                ctx.fillStyle = "#ffdbac"; ctx.fillRect(px + 10, py, 15, 15);
-                ctx.fillStyle = player.isSliding ? "#e67e22" : "#3498db";
-                if (player.isSliding) { ctx.fillRect(px, py + 15, 40, 20); }
-                else { ctx.fillRect(px + 5, py + 15, 25, 30); ctx.fillStyle = "#2c3e50"; ctx.fillRect(px + 5, py + 45, 10, 15); ctx.fillRect(px + 20, py + 45, 10, 15); }
+    // 장애물 그리기 부분
+    obstacles.forEach(o => {
+        // 박스 색상
+        ctx.fillStyle = o.isBoss ? "#e74c3c" : (o.isSlide ? "#f1c40f" : "#fff");
+        ctx.shadowBlur = 5; ctx.shadowColor = "rgba(0,0,0,0.5)"; // 박스 그림자 효과
+        ctx.fillRect(o.x, o.y, o.w, o.h);
+        ctx.shadowBlur = 0; // 초기화
 
-                obstacles.forEach(o => {
-                    ctx.fillStyle = o.isBoss ? "#e74c3c" : (o.isSlide ? "#f1c40f" : "#fff");
-                    ctx.fillRect(o.x, o.y, o.w, o.h);
-                    ctx.fillStyle = (o.isBoss || o.isSlide) ? "#fff" : "#333";
-                    ctx.textAlign = "center"; ctx.fillText(o.text, o.x + o.w/2, o.y + o.h/1.6);
-                });
-            }
+        // 글자 스타일 설정
+        ctx.font = o.isBoss ? "bold 22px 'Malgun Gothic'" : "bold 18px 'Malgun Gothic'";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // 글자 테두리(Stroke) - 가독성의 핵심
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 3;
+        ctx.strokeText(o.text, o.x + o.w / 2, o.y + o.h / 2);
+
+        // 글자 본체
+        ctx.fillStyle = "#fff"; // 기본 흰색
+        if (!o.isBoss && !o.isSlide) ctx.fillStyle = "#333"; // 일반 장애물(흰 박스)에선 어두운 글씨
+        if (o.isSlide) ctx.fillStyle = "#000"; // 노란 박스에선 검은 글씨
+        
+        ctx.fillText(o.text, o.x + o.w / 2, o.y + o.h / 2);
+    });
+}
 
             function gameOver() {
                 $scope.gameState = 'GAMEOVER';
