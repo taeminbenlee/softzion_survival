@@ -76,6 +76,42 @@
         
         .mobile-hint { position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); pointer-events: none; }
     </style>
+    <script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  limit
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCp76n4jKbBCf51Z7RifCKbtvGNmHK1rNE",
+  authDomain: "my-survival-c3eeb.firebaseapp.com",
+  projectId: "my-survival-c3eeb",
+  storageBucket: "my-survival-c3eeb.firebasestorage.app",
+  messagingSenderId: "364626318407",
+  appId: "1:364626318407:web:8a7a98d5e28b0d95c7cd62"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
+window.db = db;
+window.fb = {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  limit
+};
+
+</script>
 </head>
 <body ng-controller="GameController">
 
@@ -152,7 +188,7 @@
             const ctx = canvas.getContext('2d');
 
             $scope.playerName = localStorage.getItem('runner_name');
-            $scope.rankings = JSON.parse(localStorage.getItem('runner_rankings') || '[]');
+            $scope.rankings = [];
             $scope.gameState = 'START';
             $scope.currentTask = "업무 대기 중...";
             $scope.level = 1; $scope.hp = 100; $scope.score = 0;
@@ -223,6 +259,65 @@
             let frameCount = 0;
             let animationId;
 
+            async function saveRanking(name, score) {
+            
+                try {
+            
+                    await window.fb.addDoc(
+                        window.fb.collection(
+                            window.db,
+                            "rankings"
+                        ),
+                        {
+                            name,
+                            score,
+                            createdAt: Date.now()
+                        }
+                    );
+            
+                } catch (e) {
+            
+                    console.error("랭킹 저장 실패", e);
+            
+                }
+            }
+            
+            async function loadRankings() {
+            
+                try {
+            
+                    const q = window.fb.query(
+                        window.fb.collection(
+                            window.db,
+                            "rankings"
+                        ),
+                        window.fb.orderBy(
+                            "score",
+                            "desc"
+                        ),
+                        window.fb.limit(10)
+                    );
+            
+                    const snapshot =
+                        await window.fb.getDocs(q);
+            
+                    $scope.rankings = [];
+            
+                    snapshot.forEach(doc => {
+                        $scope.rankings.push(doc.data());
+                    });
+            
+                    $scope.$applyAsync();
+            
+                } catch (e) {
+            
+                    console.error("랭킹 조회 실패", e);
+            
+                }
+            }
+            
+            loadRankings();
+            
             $scope.saveName = function() {
                 const input = document.getElementById('playerNameInput');
                 if (input.value.trim()) { $scope.playerName = input.value.trim(); localStorage.setItem('runner_name', $scope.playerName); $scope.gameState = 'START'; }
@@ -278,6 +373,7 @@
                 let spawnInterval = Math.max(35, 90 - ($scope.level * 8));
                 if (frameCount % spawnInterval === 0) spawnObstacle();
                 frameCount++; draw(); animationId = requestAnimationFrame(update);
+                
             }
 
             function draw() {
@@ -299,13 +395,28 @@
                     ctx.fillText(o.text, o.x + o.w/2, o.y + o.h/2 + 5);
                 });
             }
-
             function gameOver() {
-                $scope.gameState = 'GAMEOVER'; cancelAnimationFrame(animationId);
-                $scope.rankings.push({ name: $scope.playerName, score: $scope.score });
-                $scope.rankings.sort((a, b) => b.score - a.score);
-                localStorage.setItem('runner_rankings', JSON.stringify($scope.rankings.slice(0, 10)));
+
+                $scope.gameState = 'GAMEOVER';
+            
+                cancelAnimationFrame(animationId);
+            
+                saveRanking(
+                    $scope.playerName,
+                    $scope.score
+                );
+            
+                setTimeout(() => {
+                    loadRankings();
+                }, 1000);
             }
+
+            // function gameOver() {
+            //     $scope.gameState = 'GAMEOVER'; cancelAnimationFrame(animationId);
+            //     $scope.rankings.push({ name: $scope.playerName, score: $scope.score });
+            //     $scope.rankings.sort((a, b) => b.score - a.score);
+            //     localStorage.setItem('runner_rankings', JSON.stringify($scope.rankings.slice(0, 10)));
+            // }
 
             // --- 컨트롤 로직 (키보드 + 터치) ---
             const handleJump = () => {
