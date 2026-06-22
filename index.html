@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ko" ng-app="RunnerApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>요구사항 러너 (Requirement Runner)</title>
+    <!-- AngularJS CDN -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        /* CSS: 게임의 룩앤필 (레트로 & 사무실 컨셉) */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #2c3e50;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            margin: 50px auto;
+            border: 4px solid #ecf0f1;
+            background-color: #f4f7f6; /* 사무실 바닥 느낌 */
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* UI 레이어 */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 클릭 이벤트가 캔버스로 전달되도록 설정 */
+        }
+
+        /* 상단 점수판 */
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 25px;
+            color: #2c3e50;
+            font-weight: bold;
+            font-size: 18px;
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        /* 중앙 메시지 (시작, 게임오버, 레벨업) */
+        .overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 10px;
+            pointer-events: auto;
+        }
+
+        .level-up-msg {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #e67e22;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            animation: fadeOut 2s forwards;
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translate(-50%, 0); }
+            100% { opacity: 0; transform: translate(-50%, -50px); }
+        }
+
+        .boss-warning {
+            color: #e74c3c;
+            font-weight: bold;
+            animation: blink 0.5s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body ng-controller="GameController">
+
+    <div id="game-container">
+        <!-- 게임 화면을 그릴 캔버스 -->
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+        <!-- UI 레이어 (Angular가 관리) -->
+        <div class="ui-layer">
+            <!-- HUD: 점수 및 레벨 정보 -->
+            <div class="hud">
+                <div>Level: {{levelName}} (Lv.{{level}})</div>
+                <div>Score: {{score}}</div>
+                <div>High Score: {{highScore}}</div>
+            </div>
+
+            <!-- 시작 화면 -->
+            <div class="overlay" ng-if="gameState === 'START'">
+                <h1>요구사항 러너</h1>
+                <p>엔터를 눌러 출근하세요.</p>
+                <small>(점프: 스페이스바)</small>
+            </div>
+
+            <!-- 게임 오버 화면 -->
+            <div class="overlay" ng-if="gameState === 'GAMEOVER'">
+                <h1 style="color: #e74c3c;">Game Over</h1>
+                <p>"결국 요구사항에 치였습니다."</p>
+                <p>최종 점수: {{score}}</p>
+                <p>엔터를 눌러 재입사하세요.</p>
+            </div>
+
+            <!-- 레벨업 알림 -->
+            <div class="level-up-msg" ng-if="showLevelUp">
+                축하합니다! {{levelName}} 개발자가 되었습니다.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // AngularJS 모듈 및 컨트롤러 정의
+        const app = angular.module('RunnerApp', []);
+
+        app.controller('GameController', function($scope, $interval, $timeout) {
+            // --- 게임 상태 변수 ---
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            $scope.gameState = 'START'; // START, PLAYING, GAMEOVER
+            $scope.score = 0;
+            $scope.highScore = localStorage.getItem('highScore') || 0;
+            $scope.level = 1;
+            $scope.levelName = "신입";
+            $scope.showLevelUp = false;
+
+            const levelTitles = ["", "신입", "주니어", "미들", "시니어", "선임", "수석"];
+            const obstaclesList = [
+                "간단한 수정", "긴급 요청", "오늘 배포", "요구사항 변경", 
+                "회의 추가", "기획 변경", "이틀이면 되죠?", "기존 영향 없습니다"
+            ];
+
+            // --- 게임 객체 설정 ---
+            let animationId;
+            let player = {
+                x: 50,
+                y: 300,
+                width: 40,
+                height: 60,
+                dy: 0,
+                jumpForce: 11, // 점프력 약간 조정
+                gravity: 0.6,
+                isGrounded: false,
+                jumpCount: 0, // 현재 점프 횟수 기록
+                color: '#3498db'
+            };
+
+            let obstacles = [];
+            let gameSpeed = 5;
+            let frameCount = 0;
+
+            // --- 게임 로직 함수 ---
+
+            // 게임 초기화
+            function init() {
+                $scope.score = 0;
+                $scope.level = 1;
+                $scope.levelName = levelTitles[1];
+                gameSpeed = 5;
+                obstacles = [];
+                player.y = 300;
+                player.dy = 0;
+                frameCount = 0;
+            }
+
+            // 장애물 생성
+            function spawnObstacle() {
+                const isBoss = Math.random() < 0.1; // 10% 확률로 보스 등장
+                const text = isBoss ? "아 근데 처음부터 다시 갈게요" : obstaclesList[Math.floor(Math.random() * obstaclesList.length)];
+                
+                const obs = {
+                    x: canvas.width,
+                    y: isBoss ? 250 : 330,
+                    text: text,
+                    isBoss: isBoss,
+                    width: 0, // 텍스트 길이에 따라 계산
+                    height: isBoss ? 100 : 40,
+                    speed: gameSpeed
+                };
+                
+                // 텍스트 너비 미리 계산
+                ctx.font = isBoss ? "bold 25px Arial" : "16px Arial";
+                obs.width = ctx.measureText(text).width + 20;
+                
+                obstacles.push(obs);
+            }
+
+            // 업데이트 루프
+            function update() {
+
+                if ($scope.gameState !== 'PLAYING') return;
+
+                    player.dy += player.gravity;
+                    player.y += player.dy;
+
+                    if (player.y > 300) {
+                        player.y = 300;
+                        player.dy = 0;
+                        player.isGrounded = true;
+                        player.jumpCount = 0; // 바닥에 닿으면 점프 횟수 초기화
+                    } else {
+                        player.isGrounded = false;
+                    }
+
+                // 1. 중력 및 점프 처리
+                player.dy += player.gravity;
+                player.y += player.dy;
+
+                if (player.y > 300) {
+                    player.y = 300;
+                    player.dy = 0;
+                    player.isGrounded = true;
+                } else {
+                    player.isGrounded = false;
+                }
+
+                // 2. 장애물 이동 및 충돌 체크
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    let o = obstacles[i];
+                    o.x -= o.speed;
+
+                    // 충돌 감지 (AABB)
+                    if (player.x < o.x + o.width &&
+                        player.x + player.width > o.x &&
+                        player.y < o.y + o.height &&
+                        player.y + player.height > o.y) {
+                        gameOver();
+                    }
+
+                    // 화면 밖으로 나간 장애물 제거 및 점수 획득
+                    if (o.x + o.width < 0) {
+                        obstacles.splice(i, 1);
+                        $scope.$apply(() => {
+                            $scope.score += 10;
+                            checkLevelUp();
+                        });
+                    }
+                }
+
+                // 3. 장애물 생성 타이밍 (난이도에 따라 간격 조절)
+                const spawnInterval = Math.max(40, 100 - ($scope.level * 10));
+                if (frameCount % spawnInterval === 0) {
+                    spawnObstacle();
+                }
+
+                frameCount++;
+                draw();
+                animationId = requestAnimationFrame(update);
+            }
+
+            // 그리기 루프
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // 배경 그리기 (사무실 바닥 선)
+                ctx.strokeStyle = '#dcdde1';
+                ctx.beginPath();
+                ctx.moveTo(0, 360);
+                ctx.lineTo(800, 360);
+                ctx.stroke();
+
+                // 캐릭터 그리기 (간단한 사각형 + 개발자 가방 느낌)
+                ctx.fillStyle = player.color;
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+                // 캐릭터 눈
+                ctx.fillStyle = 'white';
+                ctx.fillRect(player.x + 25, player.y + 10, 8, 8);
+
+                // 장애물 그리기
+                obstacles.forEach(o => {
+                    // 상자 배경
+                    ctx.fillStyle = o.isBoss ? "#c0392b" : "#ffffff";
+                    ctx.strokeStyle = "#2c3e50";
+                    ctx.lineWidth = 2;
+                    ctx.fillRect(o.x, o.y, o.width, o.height);
+                    ctx.strokeRect(o.x, o.y, o.width, o.height);
+
+                    // 텍스트
+                    ctx.fillStyle = o.isBoss ? "#ffffff" : "#2c3e50";
+                    ctx.font = o.isBoss ? "bold 20px Arial" : "15px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText(o.text, o.x + o.width/2, o.y + o.height/1.6);
+                });
+            }
+
+            // 레벨업 체크
+            function checkLevelUp() {
+                const newLevel = Math.floor($scope.score / 200) + 1;
+                if (newLevel > $scope.level && newLevel <= 6) {
+                    $scope.level = newLevel;
+                    $scope.levelName = levelTitles[$scope.level];
+                    gameSpeed += 1.5;
+                    $scope.showLevelUp = true;
+                    $timeout(() => { $scope.showLevelUp = false; }, 2000);
+                }
+            }
+
+            function gameOver() {
+                $scope.gameState = 'GAMEOVER';
+                cancelAnimationFrame(animationId);
+                if ($scope.score > $scope.highScore) {
+                    $scope.highScore = $scope.score;
+                    localStorage.setItem('highScore', $scope.highScore);
+                }
+                $scope.$apply();
+            }
+
+            // --- 이벤트 리스너 ---
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') {
+                    // 공중에 있더라도 jumpCount가 2 미만이면 점프 가능
+                    if ($scope.gameState === 'PLAYING' && player.jumpCount < 2) {
+                        player.dy = -player.jumpForce;
+                        player.jumpCount++; // 점프 횟수 증가
+                    }
+                }
+                if (e.code === 'Enter') {
+                    if ($scope.gameState === 'START' || $scope.gameState === 'GAMEOVER') {
+                        init();
+                        $scope.gameState = 'PLAYING';
+                        $scope.$apply();
+                        update();
+                    }
+                }
+            });
+
+            // 초기 화면 그리기
+            draw();
+        });
+    </script>
+</body>
+</html>
