@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>요구사항 러너 - 시니어 모드</title>
+    <title>요구사항 러너 - 소프트자이온 </title>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #2c3e50; font-family: 'Malgun Gothic', sans-serif; }
         #game-container { position: relative; width: 800px; height: 400px; margin: 50px auto; border: 4px solid #ecf0f1; background-color: #f4f7f6; box-shadow: 0 0 20px rgba(0,0,0,0.5); overflow: hidden; }
         canvas { display: block; }
         .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        .hud { display: flex; justify-content: space-between; padding: 15px 25px; color: #2c3e50; font-weight: bold; font-size: 18px; background: rgba(255, 255, 255, 0.7); }
-        .overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(0, 0, 0, 0.85); color: white; padding: 30px 50px; border-radius: 10px; pointer-events: auto; width: 60%; }
-        .level-up-msg { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); color: #e67e22; font-size: 24px; font-weight: bold; text-shadow: 2px 2px #000; animation: fadeOut 2s forwards; }
-        @keyframes fadeOut { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -50px); } }
+        .hud { display: flex; justify-content: space-between; padding: 15px 25px; color: #2c3e50; font-weight: bold; font-size: 18px; background: rgba(255, 255, 255, 0.7); border-bottom: 2px solid #bdc3c7; }
+        .overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(0, 0, 0, 0.9); color: white; padding: 30px 50px; border-radius: 15px; pointer-events: auto; width: 70%; border: 2px solid #e74c3c; }
+        .level-up-msg { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); color: #f1c40f; font-size: 26px; font-weight: bold; text-shadow: 2px 2px #000; animation: fadeOut 2s forwards; z-index: 10; }
+        @keyframes fadeOut { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -60px); } }
     </style>
 </head>
 <body ng-controller="GameController">
@@ -29,17 +29,18 @@
             </div>
 
             <div class="overlay" ng-if="gameState === 'START'">
-                <h1>🏃 요구사항 러너</h1>
-                <p style="color: #3498db; font-weight: bold;">[시니어 업데이트: 3단 점프 가능!]</p>
+                <h1 style="color: #f1c40f;">🏃 요구사항 러너</h1>
+                <p style="color: #e74c3c; font-weight: bold;">[초고속 승진 & 매운맛 업데이트]</p>
                 <p>엔터를 눌러 출근하세요.</p>
-                <p><small>점프: 스페이스바 (공중에서 연속 3번 가능)</small></p>
+                <p><small>3단 점프: 스페이스바 (공중에서 연속 3번 가능)</small></p>
+                <p><small style="color: #bdc3c7;">* 100점마다 레벨업!</small></p>
             </div>
 
             <div class="overlay" ng-if="gameState === 'GAMEOVER'">
                 <h1 style="color: #e74c3c;">Game Over</h1>
-                <p>"결국 요구사항에 치였습니다."</p>
-                <p>최종 점수: {{score}}</p>
-                <p style="color: #f1c40f;">엔터를 눌러 다시 입사하세요.</p>
+                <p>"{{lastWords}}"</p>
+                <p style="font-size: 1.2em;">최종 점수: {{score}} ({{levelName}})</p>
+                <p style="color: #f1c40f; margin-top: 20px;">엔터를 눌러 다시 재입사하세요 (무한굴레)</p>
             </div>
 
             <div class="level-up-msg" ng-if="showLevelUp">
@@ -61,20 +62,35 @@
             $scope.level = 1;
             $scope.levelName = "신입";
             $scope.showLevelUp = false;
+            $scope.lastWords = "결국 요구사항에 치였습니다.";
 
-            const levelTitles = ["", "신입", "주니어", "미들", "시니어", "선임", "수석"];
-            const obstaclesList = ["간단한 수정", "긴급 요청", "오늘 배포", "요구사항 변경", "회의 추가", "기획 변경", "이틀이면 되죠?", "기존 영향 없습니다"];
+            const levelTitles = ["", "신입", "주니어", "미들", "시니어", "선임", "수석", "연구소장", "CTO", "대표이사"];
+            
+            // 일반 장애물
+            const normalObstacles = ["간단한 수정", "긴급 요청", "오늘 배포", "요구사항 변경", "회의 추가", "기획 변경", "이틀이면 되죠?", "기존 영향 없습니다", "버그 수정"];
+            
+            // 공포의 보스 멘트 (확률적 등장)
+            const bossObstacles = [
+                { role: "[기획]", msg: "아 근데 처음부터 다시 갈게요" },
+                { role: "[PM]", msg: "이거 내일 아침까지 가능하시죠?" },
+                { role: "[PL]", msg: "코드 구조가 좀 별로네요. 다시 짜세요" },
+                { role: "[대표]", msg: "이거 사실 5분이면 되는 거 아녜요?" },
+                { role: "[기획]", msg: "전체적인 컨셉이 바뀌었습니다" },
+                { role: "[PM]", msg: "일정이 일주일 앞당겨졌어요" },
+                { role: "[PL]", msg: "이거 레거시 코드 건드리신 거예요?" },
+                { role: "[대표]", msg: "회사에 대한 열정이 부족하신 것 같네요" }
+            ];
 
             let animationId;
             let player = {
-                x: 50,
+                x: 60,
                 y: 300,
                 width: 40,
                 height: 55,
                 dy: 0,
-                jumpForce: 13, // 점프력 상향
-                gravity: 0.5,  // 중력 하향 (더 부드럽게)
-                jumpCount: 0,  // 점프 횟수 추적
+                jumpForce: 12.5,
+                gravity: 0.65,
+                jumpCount: 0,
                 color: '#3498db'
             };
 
@@ -95,19 +111,26 @@
             }
 
             function spawnObstacle() {
-                const isBoss = Math.random() < 0.15; // 보스 확률 약간 상승
-                const text = isBoss ? "아 근데 처음부터 다시 갈게요" : obstaclesList[Math.floor(Math.random() * obstaclesList.length)];
+                const isBoss = Math.random() < 0.15; // 15% 확률로 보스 등장
+                let text = "";
                 
-                ctx.font = isBoss ? "bold 22px Arial" : "16px Arial";
+                if (isBoss) {
+                    const b = bossObstacles[Math.floor(Math.random() * bossObstacles.length)];
+                    text = b.role + " " + b.msg;
+                } else {
+                    text = normalObstacles[Math.floor(Math.random() * normalObstacles.length)];
+                }
+                
+                ctx.font = isBoss ? "bold 20px Arial" : "15px Arial";
                 const textWidth = ctx.measureText(text).width + 30;
 
                 const obs = {
                     x: canvas.width,
-                    y: isBoss ? 260 : 330, // 보스의 높이를 조절하여 점프로 넘기 쉽게 변경
+                    y: isBoss ? 240 : 330, // 보스는 더 거대하고 높은 장벽
                     text: text,
                     isBoss: isBoss,
                     width: textWidth,
-                    height: isBoss ? 80 : 40,
+                    height: isBoss ? 110 : 40,
                     speed: gameSpeed
                 };
                 obstacles.push(obs);
@@ -116,27 +139,25 @@
             function update() {
                 if ($scope.gameState !== 'PLAYING') return;
 
-                // 물리 엔진
                 player.dy += player.gravity;
                 player.y += player.dy;
 
                 if (player.y > 300) {
                     player.y = 300;
                     player.dy = 0;
-                    player.jumpCount = 0; // 바닥에 닿으면 점프 초기화
+                    player.jumpCount = 0;
                 }
 
-                // 장애물 처리
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     let o = obstacles[i];
                     o.x -= o.speed;
 
-                    // 충돌 감지 (판정 최적화: 실제 박스보다 약간 작게)
-                    const padding = 10;
-                    if (player.x + padding < o.x + o.width - padding &&
-                        player.x + player.width - padding > o.x + padding &&
-                        player.y + padding < o.y + o.height - padding &&
-                        player.y + player.height - padding > o.y + padding) {
+                    // 충돌 감지
+                    if (player.x < o.x + o.width &&
+                        player.x + player.width > o.x &&
+                        player.y < o.y + o.height &&
+                        player.y + player.height > o.y) {
+                        $scope.lastWords = o.text; // 나를 죽인 그 멘트를 유언으로...
                         gameOver();
                     }
 
@@ -149,7 +170,7 @@
                     }
                 }
 
-                if (frameCount % Math.max(40, 110 - (gameSpeed * 5)) === 0) {
+                if (frameCount % Math.max(25, 80 - (gameSpeed * 4)) === 0) {
                     spawnObstacle();
                 }
 
@@ -161,40 +182,40 @@
             function draw() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // 바닥선
+                // 바닥
                 ctx.strokeStyle = '#bdc3c7';
                 ctx.beginPath();
                 ctx.moveTo(0, 355);
                 ctx.lineTo(800, 355);
                 ctx.stroke();
 
-                // 플레이어 그리기
+                // 플레이어
                 ctx.fillStyle = player.color;
                 ctx.fillRect(player.x, player.y, player.width, player.height);
                 ctx.fillStyle = 'white';
-                ctx.fillRect(player.x + 25, player.y + 10, 8, 8); // 눈
+                ctx.fillRect(player.x + 25, player.y + 10, 8, 8);
 
-                // 장애물 그리기
+                // 장애물
                 obstacles.forEach(o => {
-                    ctx.fillStyle = o.isBoss ? "#e74c3c" : "#ffffff";
+                    ctx.fillStyle = o.isBoss ? "#c0392b" : "#ffffff";
                     ctx.strokeStyle = "#2c3e50";
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = o.isBoss ? 3 : 1;
                     ctx.fillRect(o.x, o.y, o.width, o.height);
                     ctx.strokeRect(o.x, o.y, o.width, o.height);
 
                     ctx.fillStyle = o.isBoss ? "#ffffff" : "#2c3e50";
-                    ctx.font = o.isBoss ? "bold 18px Arial" : "15px Arial";
+                    ctx.font = o.isBoss ? "bold 17px Arial" : "14px Arial";
                     ctx.textAlign = "center";
                     ctx.fillText(o.text, o.x + o.width/2, o.y + o.height/1.6);
                 });
             }
 
             function checkLevelUp() {
-                const newLevel = Math.min(6, Math.floor($scope.score / 200) + 1);
+                const newLevel = Math.min(9, Math.floor($scope.score / 100) + 1); // 100점당 레벨업!
                 if (newLevel > $scope.level) {
                     $scope.level = newLevel;
                     $scope.levelName = levelTitles[$scope.level];
-                    gameSpeed += 1.2;
+                    gameSpeed += 1.3;
                     $scope.showLevelUp = true;
                     $timeout(() => { $scope.showLevelUp = false; }, 2000);
                 }
@@ -212,8 +233,8 @@
 
             window.addEventListener('keydown', (e) => {
                 if (e.code === 'Space') {
-                    e.preventDefault(); // 스크롤 방지
-                    if ($scope.gameState === 'PLAYING' && player.jumpCount < 3) { // 3단 점프
+                    e.preventDefault();
+                    if ($scope.gameState === 'PLAYING' && player.jumpCount < 3) {
                         player.dy = -player.jumpForce;
                         player.jumpCount++;
                     }
@@ -228,7 +249,7 @@
                 }
             });
 
-            draw(); // 초기 화면
+            draw();
         });
     </script>
 </body>
