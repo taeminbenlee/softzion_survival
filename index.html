@@ -193,20 +193,20 @@
                     text = JUMP_LIST[Math.floor(Math.random() * JUMP_LIST.length)];
                 }
             
-                // 폰트 크기 키움 (보스는 22px, 일반은 18px)
-                ctx.font = isBoss ? "bold 22px 'Malgun Gothic'" : "bold 18px 'Malgun Gothic'";
+                // 폰트 크기 설정 (기존보다 키움)
+                ctx.font = "bold 20px 'Malgun Gothic', sans-serif";
                 const textWidth = ctx.measureText(text).width;
-                const w = textWidth + 40; // 좌우 여백 충분히
             
                 obstacles.push({
-                    x: canvas.width + 50, 
-                    y: isSlide ? 220 : (isBoss ? 230 : 320), // y값 살짝 조정
-                    w: w, 
-                    h: isBoss ? 110 : 45, // 박스 높이 키움
-                    text: text, 
-                    isBoss: isBoss, 
+                    x: canvas.width + 50,
+                    // 슬라이딩은 낮게, 보스는 중간, 점프는 바닥
+                    y: isSlide ? 220 : (isBoss ? 230 : 315), 
+                    w: textWidth + 40, // 좌우 여백 넉넉히
+                    h: isBoss ? 110 : 50, // 높이도 더 시원하게
+                    text: text,
+                    isBoss: isBoss,
                     isSlide: isSlide,
-                    speed: gameSpeed, 
+                    speed: gameSpeed,
                     dmg: isBoss ? 40 : 10
                 });
             }
@@ -291,29 +291,49 @@ function draw() {
     if (player.isSliding) { ctx.fillRect(px, py + 15, 40, 20); }
     else { ctx.fillRect(px + 5, py + 15, 25, 30); ctx.fillStyle = "#2c3e50"; ctx.fillRect(px + 5, py + 45, 10, 15); ctx.fillRect(px + 20, py + 45, 10, 15); }
 
-    // 장애물 그리기 부분
     obstacles.forEach(o => {
-        // 박스 색상
-        ctx.fillStyle = o.isBoss ? "#e74c3c" : (o.isSlide ? "#f1c40f" : "#fff");
-        ctx.shadowBlur = 5; ctx.shadowColor = "rgba(0,0,0,0.5)"; // 박스 그림자 효과
-        ctx.fillRect(o.x, o.y, o.w, o.h);
-        ctx.shadowBlur = 0; // 초기화
+        // 1. 박스 그림자 효과 (입체감)
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "rgba(0,0,0,0.3)";
 
-        // 글자 스타일 설정
-        ctx.font = o.isBoss ? "bold 22px 'Malgun Gothic'" : "bold 18px 'Malgun Gothic'";
+        // 2. 박스 배경색 설정
+        let boxColor, textColor, borderColor;
+        if (o.isBoss) {
+            boxColor = "#e74c3c"; // 빨강
+            textColor = "#ffffff"; 
+            borderColor = "#c0392b";
+        } else if (o.isSlide) {
+            boxColor = "#f1c40f"; // 노랑
+            textColor = "#000000"; 
+            borderColor = "#f39c12";
+        } else {
+            boxColor = "#ffffff"; // 흰색
+            textColor = "#000000"; 
+            borderColor = "#2c3e50"; // 진한 테두리
+        }
+
+        // 3. 박스 및 테두리 그리기
+        ctx.fillStyle = boxColor;
+        ctx.fillRect(o.x, o.y, o.w, o.h);
+        
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(o.x, o.y, o.w, o.h);
+
+        // 4. 글자 그리기 설정
+        ctx.shadowBlur = 0; // 글자에는 그림자 제거 (지저분함 방지)
+        ctx.fillStyle = textColor;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
+        ctx.font = "bold 20px 'Malgun Gothic', sans-serif";
 
-        // 글자 테두리(Stroke) - 가독성의 핵심
-        ctx.strokeStyle = "#000";
-        ctx.lineWidth = 3;
-        ctx.strokeText(o.text, o.x + o.w / 2, o.y + o.h / 2);
+        // 5. 글자가 더 뚜렷하게 보이도록 아주 얇은 외곽선 추가 (선택사항)
+        if (o.isBoss) {
+            ctx.strokeStyle = "rgba(0,0,0,0.5)";
+            ctx.lineWidth = 1;
+            ctx.strokeText(o.text, o.x + o.w / 2, o.y + o.h / 2);
+        }
 
-        // 글자 본체
-        ctx.fillStyle = "#fff"; // 기본 흰색
-        if (!o.isBoss && !o.isSlide) ctx.fillStyle = "#333"; // 일반 장애물(흰 박스)에선 어두운 글씨
-        if (o.isSlide) ctx.fillStyle = "#000"; // 노란 박스에선 검은 글씨
-        
         ctx.fillText(o.text, o.x + o.w / 2, o.y + o.h / 2);
     });
 }
