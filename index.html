@@ -354,11 +354,7 @@ window.fb = {
             $scope.resumeGame = function() { $scope.gameState = 'PLAYING'; update(); };
 
             function spawnObstacle() {
-                const isBoss = Math.random() < 0.25;
-                const isSlide = !isBoss && Math.random() < 0.35;
-                let text = isBoss ? BOSS_LIST[Math.floor(Math.random() * BOSS_LIST.length)] : (isSlide ? SLIDE_LIST[Math.floor(Math.random() * SLIDE_LIST.length)] : JUMP_LIST[Math.floor(Math.random() * JUMP_LIST.length)]);
-                
-                et text = "";
+                let text = "";
                 const isBoss = Math.random() < 0.28;
                 const isSlide = !isBoss && Math.random() < 0.35;
 
@@ -399,10 +395,26 @@ window.fb = {
                     if (o.x + o.w < 0) {
                         $scope.currentTask = (o.isBoss ? "🔥 " : "✅ ") + o.text + " 완료!";
                         obstacles.splice(i, 1); $scope.score += 10;
-                        if ($scope.score > 0 && $scope.score % 100 === 0 && $scope.level < levelData.length) {
-                            $scope.gameState = 'PROMOTION'; $scope.level++; gameSpeed += 1.5; $scope.updateLevel();
+                        // if ($scope.score > 0 && $scope.score % 100 === 0 && $scope.level < levelData.length) {
+                        //     $scope.gameState = 'PROMOTION'; $scope.level++; gameSpeed += 1.5; $scope.updateLevel();
+                        // } else {
+                            
+                        // }
+                        // $scope.$apply();
+                        if ($scope.score > 0 && $scope.score % 100 === 0) {
+                            if ($scope.level < levelData.length) {
+                                // 다음 단계 발령
+                                $scope.gameState = 'PROMOTION';
+                                $scope.level++;
+                                gameSpeed += 2.0; // 레벨업 시 속도 대폭 증가
+                                $scope.updateLevel();
+                            } else {
+                                // 만렙 이후 (무한 단계)
+                                $scope.currentTask = "✨ 해탈: 모든 업무가 무의미해집니다 (난이도 급상승)";
+                                gameSpeed += 1.5; // 속도는 계속 빨라짐
+                            }
+                            $scope.$apply();
                         }
-                        $scope.$apply();
                     }
                 }
                 let spawnInterval = Math.max(35, 90 - ($scope.level * 8));
@@ -510,6 +522,7 @@ window.fb = {
                     ctx.font = "bold 15px 'Malgun Gothic'"; ctx.textAlign = "center";
                     ctx.fillText(o.text, o.x + o.w/2, o.y + o.h/2 + 5);
                 });
+                
             }
             function gameOver() {
 
