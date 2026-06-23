@@ -223,6 +223,22 @@ window.fb = {
                     title: "최종 보스 (CTO)", 
                     bg: "#000000", // 심야, 모든 것이 끝난 암흑
                     task: "자, 5분이면 되는 거 아녜요? (전 직원의 적이자 끝판왕 단계)" 
+                },
+                { 
+                    title: "연쇄 창업가 (CEO)", bg: "#6F1E51", // 자주색 (투자 유치의 압박)
+                    task: "CTO를 때려치우고 창업했습니다. 이젠 내 돈이 타들어가는 걸 실시간으로 봅니다." 
+                },
+                { 
+                    title: "전설의 프리랜서", bg: "#1B1464", // 깊은 밤색 (고독한 싸움)
+                    task: "조직을 떠나 혼자가 되었습니다. 단가는 높지만, 건강보험료가 무섭습니다." 
+                },
+                { 
+                    title: "치킨집 사장님", bg: "#EE5A24", // 황금 올리브색 (제2의 인생)
+                    task: "드디어 개발을 접었습니다. 닭을 튀기는데 왜 자꾸 에러 메시지가 환청으로 들릴까요?" 
+                },
+                { 
+                    title: "나는 자연인이다", bg: "#006266", // 숲색 (최종 해탈)
+                    task: "산으로 들어왔습니다. 전기와 인터넷이 없으니 버그도 없습니다. 비로소 행복합니다." 
                 }
             ];
 
@@ -341,6 +357,25 @@ window.fb = {
                 const isBoss = Math.random() < 0.25;
                 const isSlide = !isBoss && Math.random() < 0.35;
                 let text = isBoss ? BOSS_LIST[Math.floor(Math.random() * BOSS_LIST.length)] : (isSlide ? SLIDE_LIST[Math.floor(Math.random() * SLIDE_LIST.length)] : JUMP_LIST[Math.floor(Math.random() * JUMP_LIST.length)]);
+                
+                et text = "";
+                const isBoss = Math.random() < 0.28;
+                const isSlide = !isBoss && Math.random() < 0.35;
+
+                if ($scope.level <= 6) {
+                    // 기존 IT 업무 리스트
+                    text = isBoss ? BOSS_LIST[Math.floor(Math.random() * BOSS_LIST.length)] : 
+                          (isSlide ? SLIDE_LIST[Math.floor(Math.random() * SLIDE_LIST.length)] : 
+                           JUMP_LIST[Math.floor(Math.random() * JUMP_LIST.length)]);
+                } else if ($scope.level <= 8) {
+                    // CEO / 프리랜서 단계 장애물
+                    const CEO_LIST = ["투자 유치 실패", "임대료 미납", "직원 집단 퇴사", "세무조사 착수", "경쟁사 카피캣", "서버 비용 폭탄", "외주비 미수금"];
+                    text = CEO_LIST[Math.floor(Math.random() * CEO_LIST.length)];
+                } else {
+                    // 치킨집 / 자연인 단계 장애물
+                    const LIFE_LIST = ["배달앱 수수료", "닭고기값 폭등", "리뷰 별점 1점", "기름 교체 타이밍", "멧돼지 출몰", "폭우로 고립", "등산객 길안내"];
+                    text = LIFE_LIST[Math.floor(Math.random() * LIFE_LIST.length)];
+                }
                 ctx.font = "bold 16px 'Malgun Gothic'";
                 const boxWidth = ctx.measureText(text).width + 30;
                 obstacles.push({ x: canvas.width + 50, y: isSlide ? 230 : (isBoss ? 210 : 310), w: boxWidth, h: isBoss ? 130 : 50, text: text, isBoss, isSlide, speed: gameSpeed, dmg: isBoss ? 35 : 15 });
@@ -377,13 +412,94 @@ window.fb = {
             }
 
             function draw() {
-                const d = levelData[Math.min($scope.level - 1, levelData.length - 1)];
-                ctx.fillStyle = d.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#34495e"; ctx.fillRect(0, 360, canvas.width, 40);
-                
-                // 플레이어
-                ctx.fillStyle = player.isSliding ? "#e67e22" : "#3498db";
-                ctx.fillRect(player.x, player.y, player.isSliding ? 45 : 30, player.isSliding ? 25 : 55);
+                    const d = levelData[Math.min($scope.level - 1, levelData.length - 1)];
+                    ctx.fillStyle = d.bg; 
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 바닥
+                    ctx.fillStyle = "#34495e"; 
+                    ctx.fillRect(0, 360, canvas.width, 40);
+
+                    // --- [플레이어 캐릭터 그리기 시작] ---
+                    const px = player.x;
+                    const py = player.y;
+                    const isJumping = player.y < 300 && !player.isSliding;
+                    const legMove = isJumping ? 5 : Math.sin(frameCount * 0.2) * 12;
+                    const armMove = isJumping ? -5 : Math.sin(frameCount * 0.2) * 10;
+
+                    // 공통 스타일 설정
+                    ctx.strokeStyle = "#ffffff"; // 흰색 외곽선으로 가독성 확보
+                    ctx.lineWidth = 1.5;
+                    ctx.lineJoin = "round";
+
+                    if (!player.isSliding) {
+                        // [1. 뒤쪽 팔]
+                        ctx.fillStyle = "#1a252f"; // 몸통보다 조금 어두운 색
+                        ctx.fillRect(px + 20 - armMove, py + 15, 8, 15);
+                        ctx.strokeRect(px + 20 - armMove, py + 15, 8, 15);
+
+                        // [2. 다리]
+                        ctx.fillStyle = "#2c3e50";
+                        // 왼쪽 다리
+                        ctx.fillRect(px + 4, py + 35, 10, 20 + (isJumping ? 0 : legMove));
+                        ctx.strokeRect(px + 4, py + 35, 10, 20 + (isJumping ? 0 : legMove));
+                        // 오른쪽 다리
+                        ctx.fillRect(px + 16, py + 35, 10, 20 + (isJumping ? 0 : -legMove));
+                        ctx.strokeRect(px + 16, py + 35, 10, 20 + (isJumping ? 0 : -legMove));
+
+                        // [3. 몸통]
+                        ctx.fillStyle = "#34495e";
+                        ctx.fillRect(px, py + 12, 30, 25);
+                        ctx.strokeRect(px, py + 12, 30, 25);
+
+                        // [4. 셔츠 & 넥타이]
+                        ctx.fillStyle = "#fff";
+                        ctx.fillRect(px + 12, py + 12, 6, 10);
+                        ctx.fillStyle = "#e74c3c"; // 빨간 넥타이 (포인트라 외곽선 제외)
+                        ctx.fillRect(px + 14, py + 15, 2, 8 + Math.abs(armMove));
+
+                        // [5. 앞쪽 팔]
+                        ctx.fillStyle = "#34495e";
+                        ctx.fillRect(px - 5 + armMove, py + 15, 8, 15);
+                        ctx.strokeRect(px - 5 + armMove, py + 15, 8, 15);
+
+                        // [6. 머리 - 가장 마지막에 그려서 위로 오게 함]
+                        ctx.fillStyle = "#ffdbac";
+                        const headY = py - 7 + (isJumping ? -2 : Math.sin(frameCount * 0.4) * 2);
+                        ctx.fillRect(px + 5, headY, 20, 20);
+                        ctx.strokeRect(px + 5, headY, 20, 20);
+                        // 머리카락
+                        ctx.fillStyle = "#222";
+                        ctx.fillRect(px + 5, headY - 3, 20, 7);
+
+                    } else {
+                        // [슬라이딩 상태]
+                        
+                        // 1. 쭉 뻗은 다리
+                        ctx.fillStyle = "#2c3e50";
+                        ctx.fillRect(px - 15, py + 40, 45, 12);
+                        ctx.strokeRect(px - 15, py + 40, 45, 12);
+                        
+                        // 2. 뒤로 누운 몸통
+                        ctx.save();
+                        ctx.translate(px, py + 35);
+                        ctx.rotate(-Math.PI / 5); 
+                        ctx.fillStyle = "#34495e";
+                        ctx.fillRect(0, -20, 35, 20);
+                        ctx.strokeRect(0, -20, 35, 20);
+                        
+                        // 3. 와이셔츠 포인트
+                        ctx.fillStyle = "#fff";
+                        ctx.fillRect(5, -20, 6, 8);
+                        ctx.restore();
+
+                        // 4. 머리 (몸통보다 나중에 그려서 겹침 방지)
+                        ctx.fillStyle = "#ffdbac";
+                        ctx.fillRect(px + 10, py + 22, 18, 18);
+                        ctx.strokeRect(px + 10, py + 22, 18, 18);
+                        ctx.fillStyle = "#222";
+                        ctx.fillRect(px + 10, py + 20, 18, 6);
+                    }
 
                 // 장애물
                 obstacles.forEach(o => {
