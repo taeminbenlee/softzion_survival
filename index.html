@@ -379,48 +379,71 @@ window.fb = {
 
             function update() {
                 if ($scope.gameState !== 'PLAYING') return;
-                player.dy += player.gravity; player.y += player.dy;
-                const groundY = player.isSliding ? 330 : 305;
-                if (player.y > groundY) { player.y = groundY; player.dy = 0; player.jumpCount = 0; }
 
+                player.dy += player.gravity; 
+                player.y += player.dy;
+                
+                const groundY = player.isSliding ? 330 : 305;
+                if (player.y > groundY) { 
+                    player.y = groundY; 
+                    player.dy = 0; 
+                    player.jumpCount = 0; 
+                }
+
+                // 장애물 처리 루프
                 for (let i = obstacles.length - 1; i >= 0; i--) {
-                    let o = obstacles[i]; o.x -= o.speed;
+                    let o = obstacles[i]; 
+                    o.x -= o.speed;
+
                     const hitboxY = player.isSliding ? player.y + 20 : player.y;
                     const hitboxH = player.isSliding ? 20 : 55;
+
+                    // 1. 충돌 체크
                     if (player.x < o.x + o.w && player.x + 30 > o.x && hitboxY < o.y + o.h && hitboxY + hitboxH > o.y) {
-                        $scope.hp -= o.dmg; $scope.lastWords = o.text; obstacles.splice(i, 1);
+                        $scope.hp -= o.dmg; 
+                        $scope.lastWords = o.text; 
+                        obstacles.splice(i, 1);
                         if ($scope.hp <= 0) gameOver();
-                        $scope.$apply(); continue;
+                        // 충돌 시에는 값이 많이 바뀌므로 즉시 반영
+                        $scope.$applyAsync(); 
+                        continue;
                     }
+
+                    // 2. 점수 획득 체크 (장애물이 화면 왼쪽으로 완전히 사라졌을 때)
                     if (o.x + o.w < 0) {
                         $scope.currentTask = (o.isBoss ? "🔥 " : "✅ ") + o.text + " 완료!";
-                        obstacles.splice(i, 1); $scope.score += 10;
-                        // if ($scope.score > 0 && $scope.score % 100 === 0 && $scope.level < levelData.length) {
-                        //     $scope.gameState = 'PROMOTION'; $scope.level++; gameSpeed += 1.5; $scope.updateLevel();
-                        // } else {
-                            
-                        // }
-                        // $scope.$apply();
+                        obstacles.splice(i, 1); 
+                        
+                        // 점수 증가!!
+                        $scope.score += 10; 
+
+                        // 레벨업 로직
                         if ($scope.score > 0 && $scope.score % 100 === 0) {
                             if ($scope.level < levelData.length) {
                                 // 다음 단계 발령
                                 $scope.gameState = 'PROMOTION';
                                 $scope.level++;
-                                gameSpeed += 2.0; // 레벨업 시 속도 대폭 증가
+                                gameSpeed += 2.0; 
                                 $scope.updateLevel();
                             } else {
                                 // 만렙 이후 (무한 단계)
                                 $scope.currentTask = "✨ 해탈: 모든 업무가 무의미해집니다 (난이도 급상승)";
-                                gameSpeed += 1.5; // 속도는 계속 빨라짐
+                                gameSpeed += 1.5;
                             }
-                            $scope.$apply();
                         }
+                        
+                        // [중요] 점수가 올랐으니 화면을 갱신하라고 Angular에 알려줌
+                        $scope.$applyAsync(); 
                     }
                 }
+
+                // 장애물 생성 타이밍
                 let spawnInterval = Math.max(35, 90 - ($scope.level * 8));
                 if (frameCount % spawnInterval === 0) spawnObstacle();
-                frameCount++; draw(); animationId = requestAnimationFrame(update);
-                
+
+                frameCount++; 
+                draw(); 
+                animationId = requestAnimationFrame(update);
             }
 
             function draw() {
