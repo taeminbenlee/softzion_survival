@@ -3,168 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IT 직장인의 퇴근도전 게임 </title>
+    <title>IT 직장인의 퇴근도전 게임</title>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
     <style>
         :root { --danger: #e74c3c; --success: #2ecc71; --gold: #f1c40f; --office: #34495e; --panel: #2c3e50; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #1a1a1a; font-family: 'Malgun Gothic', sans-serif; color: #fff; overflow-x: hidden; }
         
-        #main-layout {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-            width: 100%;
-            padding: 10px;
-            box-sizing: border-box;
-        }
+        #main-layout { display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%; padding: 10px; box-sizing: border-box; }
+        #game-area { display: flex; flex-direction: row; flex-wrap: wrap; gap: 15px; justify-content: center; width: 100%; }
         
-        /* 모바일 대응: 화면이 좁으면 세로로, 넓으면 가로로 */
-        #game-area {
-            display: flex;
-            flex-direction: row;
-            flex-wrap: wrap;
-            gap: 15px;
-            justify-content: center;
-            width: 100%;
-        }
-        
+        /* 화면 크기 확대: 900x500 */
         #game-container { 
             position: relative; 
             width: 100%; 
-            max-width: 800px; 
-            aspect-ratio: 2 / 1; /* 가로세로비 유지 */
+            max-width: 900px; 
+            aspect-ratio: 18 / 10; 
             background: #000; 
             border: 4px solid #444; 
             overflow: hidden; 
-            touch-action: none; /* 브라우저 기본 터치 방지 (스크롤 방지) */
+            touch-action: none; 
         }
         canvas { display: block; width: 100%; height: 100%; }
 
-        #work-log-bar {
-            width: 100%;
-            max-width: 800px;
-            min-height: 60px;
-            background: #2c3e50;
-            border: 3px solid var(--gold);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            padding: 10px 15px;
-            box-sizing: border-box;
-        }
-        
+        #work-log-bar { width: 100%; max-width: 900px; min-height: 60px; background: #2c3e50; border: 3px solid var(--gold); border-radius: 12px; display: flex; align-items: center; padding: 10px 15px; box-sizing: border-box; }
         .log-label { background: var(--gold); color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; margin-right: 10px; white-space: nowrap; }
         .log-text { color: #fff; font-size: 16px; font-weight: bold; }
 
-        #side-panel { width: 100%; max-width: 800px; background: var(--panel); border: 4px solid #444; padding: 15px; box-sizing: border-box; height: auto; min-height: 150px; }
-        
-        @media (min-width: 1100px) {
-            #side-panel { width: 250px; height: 400px; }
-            #work-log-bar { margin-right: 270px; } /* 랭킹창 너비만큼 보정 */
-        }
+        #side-panel { width: 100%; max-width: 900px; background: var(--panel); border: 4px solid #444; padding: 15px; box-sizing: border-box; min-height: 150px; }
+        @media (min-width: 1100px) { #side-panel { width: 250px; height: 500px; } #work-log-bar { margin-right: 270px; } }
 
         .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; padding: 20px; }
         .promotion-modal { background: #fff; color: #333; padding: 20px; border-radius: 5px; width: 90%; max-width: 400px; border: 5px double var(--office); }
-        
         input { padding: 15px; border-radius: 5px; width: 80%; max-width: 250px; margin-bottom: 15px; font-size: 16px; }
         button { padding: 15px 30px; background: var(--office); color: white; border: none; cursor: pointer; font-weight: bold; font-size: 16px; border-radius: 8px; }
 
         .hud { position: absolute; top: 10px; left: 10px; width: 92%; display: flex; justify-content: space-between; pointer-events: none; z-index: 50; }
-        .hp-bar { width: 100px; height: 10px; background: rgba(0,0,0,0.5); border: 1px solid #fff; margin-top: 5px; }
+        .hp-bar { width: 150px; height: 12px; background: rgba(0,0,0,0.5); border: 1px solid #fff; margin-top: 5px; }
         .hp-fill { height: 100%; background: var(--success); transition: width 0.2s; }
         
-        .mobile-hint { position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); pointer-events: none; }
+        /* 버프 아이콘 스타일 */
+        .buff-container { display: flex; gap: 5px; margin-top: 5px; }
+        .buff-badge { font-size: 10px; padding: 2px 5px; border-radius: 3px; background: var(--gold); color: #000; font-weight: bold; }
     </style>
+
     <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  orderBy,
-  limit
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyCp76n4jKbBCf51Z7RifCKbtvGNmHK1rNE",
+            authDomain: "my-survival-c3eeb.firebaseapp.com",
+            projectId: "my-survival-c3eeb",
+            storageBucket: "my-survival-c3eeb.firebasestorage.app",
+            messagingSenderId: "364626318407",
+            appId: "1:364626318407:web:8a7a98d5e28b0d95c7cd62"
+        };
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCp76n4jKbBCf51Z7RifCKbtvGNmHK1rNE",
-  authDomain: "my-survival-c3eeb.firebaseapp.com",
-  projectId: "my-survival-c3eeb",
-  storageBucket: "my-survival-c3eeb.firebasestorage.app",
-  messagingSenderId: "364626318407",
-  appId: "1:364626318407:web:8a7a98d5e28b0d95c7cd62"
-};
-
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
-
-window.db = db;
-window.fb = {
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  orderBy,
-  limit
-};
-
-</script>
+        const firebaseApp = initializeApp(firebaseConfig);
+        const db = getFirestore(firebaseApp);
+        window.db = db;
+        window.fb = { collection, addDoc, getDocs, query, orderBy, limit };
+    </script>
 </head>
 <body ng-controller="GameController">
 
     <div id="main-layout">
         <div id="game-area">
-            <div id="game-container" id="touchArea">
-                <canvas id="gameCanvas" width="800" height="400"></canvas>
+            <div id="game-container">
+                <canvas id="gameCanvas" width="900" height="500"></canvas>
 
-                <!-- HUD -->
-                <div class="hud" ng-if="playerName && gameState === 'PLAYING'">
+                <div class="hud" ng-if="playerName && gameState !== 'START'">
                     <div>
-                        <strong style="font-size: 14px;">{{playerName}}</strong>
+                        <strong style="font-size: 16px;">{{playerName}}</strong> ({{levelName}})
                         <div class="hp-bar"><div class="hp-fill" ng-style="{'width': hp + '%'}"></div></div>
+                        <div class="buff-container">
+                            <span class="buff-badge" ng-if="invincibleTimer > 0">🛡️ 무적</span>
+                            <span class="buff-badge" ng-if="scoreMult > 1" style="background:#2ecc71; color:#fff;">💰 x2</span>
+                            <span class="buff-badge" ng-if="hasRollback" style="background:#e74c3c; color:#fff;">🚨 롤백</span>
+                        </div>
                     </div>
-                    <div style="text-align: right; color: var(--gold); font-size: 20px; font-weight: bold;">{{score}}</div>
-                </div>
-
-                <div class="mobile-hint" ng-if="gameState === 'PLAYING'">
-                    ← 점프 (2단 가능!) | 슬라이딩 (누르고 있기) →
+                    <div style="text-align: right; color: var(--gold); font-size: 24px; font-weight: bold;">{{score}}</div>
                 </div>
 
                 <!-- 오버레이들 -->
                 <div class="overlay" ng-if="!playerName">
                     <h2 style="color: var(--gold);">신규 입사 신청서</h2>
-                    <input type="text" id="playerNameInput" placeholder="성함 (최대 8자)" maxlength="8">
-                    <button ng-click="saveName()">사원증 발급 (입사)</button>
+                    <input type="text" id="playerNameInput" placeholder="성함" maxlength="8">
+                    <button ng-click="saveName()">사원증 발급</button>
                 </div>
 
                 <div class="overlay" ng-show="playerName && gameState === 'START'">
                     <h1>오늘의 업무 대기 중</h1>
-                    <p>{{playerName}}님, 준비되셨나요?</p>
-                    <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px; margin: 15px 0; font-size: 14px; line-height: 1.6; border: 1px solid rgba(255,255,255,0.2);">
-                        <strong style="color: var(--gold); font-size: 16px;">[ 업무 수행 지침 ]</strong><br>
-                        ⌨️ **PC**: 점프(Space) / 슬라이딩(↓)<br>
-                        📱 **Mobile**: 왼쪽 터치(점프) / 오른쪽 터치(슬라이딩)<br>
-                        <span style="background: var(--danger); padding: 2px 5px; border-radius: 3px;">꿀팁</span> 
-                        <strong style="color: #fff;">점프 중 한 번 더 점프하여 '2단 점프'가 가능합니다!</strong>
+                    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-bottom: 15px; font-size: 14px;">
+                        점프(Space) / 슬라이딩(↓) / <strong>2단 점프 가능</strong><br>
+                        <span style="color:var(--gold)">공중에 떠있는 아이템을 획득해 생존하세요!</span>
                     </div>
-                    <button ng-click="startGame()">업무 시작 (Tap)</button>
+                    <button ng-click="startGame()">업무 시작</button>
                 </div>
 
                 <div class="overlay" ng-if="gameState === 'PROMOTION'">
                     <div class="promotion-modal">
-                        <h3 style="margin:0;">[인사 발령]</h3>
-                        <h2 style="color:var(--office); margin:10px 0;">{{levelName}}</h2>
-                        <p style="font-size:14px;">{{levelTask}}</p>
+                        <h3>[인사 발령]</h3>
+                        <h2 style="color:var(--office);">{{levelName}}</h2>
+                        <p>{{levelTask}}</p>
                         <button ng-click="resumeGame()">업무 복귀</button>
                     </div>
                 </div>
 
                 <div class="overlay" ng-if="gameState === 'GAMEOVER'">
                     <h2 style="color:var(--danger);">권고사직 (Game Over)</h2>
-                    <p style="font-size: 14px; background: rgba(255,255,255,0.1); padding:10px;">"{{lastWords}}"</p>
+                    <p style="background: rgba(255,255,255,0.1); padding:10px;">"{{lastWords}}"</p>
                     <h3 style="color:var(--gold);">최종 성과: {{score}}</h3>
                     <button ng-click="startGame()">재입사 지원</button>
                 </div>
@@ -172,8 +120,8 @@ window.fb = {
 
             <div id="side-panel">
                 <div style="text-align:center; color:var(--gold); border-bottom:1px solid #666; padding-bottom:10px; margin-bottom:10px; font-weight:bold;">🏆 명예의 전당</div>
-                <div style="max-height: 200px; overflow-y: auto;">
-                    <div ng-repeat="r in rankings | limitTo: 10" style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px;">
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <div ng-repeat="r in rankings | limitTo: 15" style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px;">
                         <span>{{$index + 1}}. {{r.name}}</span>
                         <span style="color:var(--gold)">{{r.score}}</span>
                     </div>
@@ -198,58 +146,40 @@ window.fb = {
             $scope.rankings = [];
             $scope.gameState = 'START';
             $scope.currentTask = "업무 대기 중...";
-            $scope.level = 1; $scope.hp = 100; $scope.score = 0;
+            $scope.hp = 100; $scope.score = 0; $scope.level = 1;
+            
+            // 아이템 효과 변수
+            $scope.invincibleTimer = 0;
+            $scope.scoreMult = 1;
+            $scope.hasRollback = false;
+            $scope.isOffWork = false;
 
             const levelData = [
-                { 
-                    title: "신입 (사원/대리)", 
-                    bg: "#2c3e50", // 차분한 새벽 출근길
-                    task: "시키는 건 다 합니다. 아직은 의욕이 앞서며, 퇴근 후 운동도 꿈꿉니다." 
-                },
-                { 
-                    title: "주니어 (과장)", 
-                    bg: "#1e3799", // 업무가 몰아치는 오전
-                    task: "구글링과 챗GPT가 나의 영혼입니다. 슬슬 내 코드가 부끄러워지기 시작합니다." 
-                },
-                { 
-                    title: "미들 (차장)", 
-                    bg: "#0c2461", // 피크 타임의 오후
-                    task: "밑에서 치이고 위에서 눌립니다. 버그를 고치면 버그가 두 개 생기는 마법을 부립니다." 
-                },
-                { 
-                    title: "시니어 (팀장/부장)", 
-                    bg: "#b71540", // 노을 지는 야근의 시작
-                    task: "코딩보다 엑셀과 PPT를 더 많이 봅니다. 회의실에서 탈출하는 법을 연구합니다." 
-                },
-                { 
-                    title: "수석 (본부장/이사)", 
-                    bg: "#4b6584", // 늦은 밤 사무실
-                    task: "모든 코드가 엉망으로 보이지만 고칠 기운이 없습니다. 인자한 미소로 위기를 넘깁니다." 
-                },
-                { 
-                    title: "최종 보스 (CTO)", 
-                    bg: "#000000", // 심야, 모든 것이 끝난 암흑
-                    task: "자, 5분이면 되는 거 아녜요? (전 직원의 적이자 끝판왕 단계)" 
-                },
-                { 
-                    title: "연쇄 창업가 (CEO)", bg: "#6F1E51", // 자주색 (투자 유치의 압박)
-                    task: "CTO를 때려치우고 창업했습니다. 이젠 내 돈이 타들어가는 걸 실시간으로 봅니다." 
-                },
-                { 
-                    title: "전설의 프리랜서", bg: "#1B1464", // 깊은 밤색 (고독한 싸움)
-                    task: "조직을 떠나 혼자가 되었습니다. 단가는 높지만, 건강보험료가 무섭습니다." 
-                },
-                { 
-                    title: "치킨집 사장님", bg: "#EE5A24", // 황금 올리브색 (제2의 인생)
-                    task: "드디어 개발을 접었습니다. 닭을 튀기는데 왜 자꾸 에러 메시지가 환청으로 들릴까요?" 
-                },
-                { 
-                    title: "나는 자연인이다", bg: "#006266", // 숲색 (최종 해탈)
-                    task: "산으로 들어왔습니다. 전기와 인터넷이 없으니 버그도 없습니다. 비로소 행복합니다." 
-                }
+                { title: "신입 (사원/대리)", bg: "#2c3e50", task: "시키는 건 다 합니다. 아직은 의욕이 앞서며, 퇴근 후 운동도 꿈꿉니다." },
+                { title: "주니어 (과장)", bg: "#1e3799", task: "구글링과 챗GPT가 나의 영혼입니다. 슬슬 내 코드가 부끄러워지기 시작합니다." },
+                { title: "미들 (차장)", bg: "#0c2461", task: "밑에서 치이고 위에서 눌립니다. 버그를 고치면 버그가 두 개 생기는 마법을 부립니다." },
+                { title: "시니어 (팀장/부장)", bg: "#b71540", task: "코딩보다 엑셀과 PPT를 더 많이 봅니다. 회의실에서 탈출하는 법을 연구합니다." },
+                { title: "수석 (이사)", bg: "#4b6584", task: "모든 코드가 엉망으로 보이지만 고칠 기운이 없습니다. 인자하게 웃습니다." },
+                { title: "최종 보스 (CTO)", bg: "#000000", task: "자, 이거 5분이면 되는 거 아녜요? (전 직원의 공포)" },
+                { title: "연쇄 창업가 (CEO)", bg: "#6F1E51", task: "CTO를 때려치우고 창업했습니다. 이젠 내 돈이 타들어가는 걸 실시간으로 봅니다." },
+                { title: "전설의 프리랜서", bg: "#1B1464", task: "조직을 떠나 혼자가 되었습니다. 단가는 높지만, 건강보험료가 무섭습니다." },
+                { title: "치킨집 사장님", bg: "#EE5A24", task: "드디어 개발을 접었습니다. 닭을 튀기는데 왜 자꾸 에러 메시지가 환청으로 들릴까요?" },
+                { title: "나는 자연인이다", bg: "#006266", task: "산으로 들어왔습니다. 전기와 인터넷이 없으니 버그도 없습니다. 비로소 행복합니다." }
             ];
 
-            // [점프] 짧고 강렬하게 치고 들어오는 기술적 문제/잔업
+            const ITEM_TYPES = [
+                { icon: "☕", color: "#6F4E37", effect: "COFFEE", msg: "아아 수혈 성공! 카페인 과다 충전" },
+                { icon: "🏖", color: "#FFCE54", effect: "HALFDAY", msg: "오후 반차 승인! 병원 진료 예정" },
+                { icon: "📅", color: "#ED5565", effect: "ANNUAL", msg: "연차 승인 완료! 회사 연락 차단" },
+                { icon: "🤖", color: "#48CFAD", effect: "GPT", msg: "ChatGPT가 에러 원인을 파악했습니다" },
+                { icon: "👨‍💻", color: "#AC92EC", effect: "BONUS_TIME", msg: "야근 승인! 특근 수당 지급" },
+                { icon: "🚨", color: "#DA4453", effect: "ROLLBACK", msg: "긴급 롤백 진행! 배포 이전 상태 복구" },
+                { icon: "💰", color: "#F6BB42", effect: "MONEY", msg: "성과급이 예상보다 많이 나옴!" },
+                { icon: "🍗", color: "#E9573F", effect: "DINNER", msg: "팀 회식 중..." },
+                { icon: "🎯", color: "#FC6E51", effect: "OFFWORK", msg: "정 시 퇴 근 성 공 ! ! !" }
+            ];
+
+              // [점프] 짧고 강렬하게 치고 들어오는 기술적 문제/잔업
             const JUMP_LIST = [
                 "Git 충돌 발생", "NullPointer 에러", "AWS 서버 터짐", "IE 브라우저 대응", 
                 "CSS 1px 어긋남", "배포 후 에러 감지", "슬랙 알림 폭탄", "DB 커넥션 부족",
@@ -276,79 +206,38 @@ window.fb = {
                 "인수인계 문서 없음", "타 부서 잘못 덤탱이", "외주 업체 먹튀", "고객사 담당자 변경"
             ];
 
-            let player = { x: 80, y: 300, w: 30, h: 55, dy: 0, jumpPower: 14, gravity: 0.8, jumpCount: 0, isSliding: false };
+            let player = { x: 80, y: 380, w: 35, h: 60, dy: 0, jumpPower: 15, gravity: 0.8, jumpCount: 0, isSliding: false };
             let obstacles = [];
-            let gameSpeed = 6;
+            let items = [];
+            let gameSpeed = 7;
             let frameCount = 0;
             let animationId;
 
             async function saveRanking(name, score) {
-            
-                try {
-            
-                    await window.fb.addDoc(
-                        window.fb.collection(
-                            window.db,
-                            "rankings"
-                        ),
-                        {
-                            name,
-                            score,
-                            createdAt: Date.now()
-                        }
-                    );
-            
-                } catch (e) {
-            
-                    console.error("랭킹 저장 실패", e);
-            
-                }
+                try { await window.fb.addDoc(window.fb.collection(window.db, "rankings"), { name, score, createdAt: Date.now() }); }
+                catch (e) { console.error("저장 실패", e); }
             }
             
             async function loadRankings() {
-            
                 try {
-            
-                    const q = window.fb.query(
-                        window.fb.collection(
-                            window.db,
-                            "rankings"
-                        ),
-                        window.fb.orderBy(
-                            "score",
-                            "desc"
-                        ),
-                        window.fb.limit(10)
-                    );
-            
-                    const snapshot =
-                        await window.fb.getDocs(q);
-            
-                    $scope.rankings = [];
-            
-                    snapshot.forEach(doc => {
-                        $scope.rankings.push(doc.data());
-                    });
-            
+                    const q = window.fb.query(window.fb.collection(window.db, "rankings"), window.fb.orderBy("score", "desc"), window.fb.limit(15));
+                    const snapshot = await window.fb.getDocs(q);
+                    $scope.rankings = snapshot.docs.map(doc => doc.data());
                     $scope.$applyAsync();
-            
-                } catch (e) {
-            
-                    console.error("랭킹 조회 실패", e);
-            
-                }
+                } catch (e) { console.error("조회 실패", e); }
             }
             
             loadRankings();
             
             $scope.saveName = function() {
-                const input = document.getElementById('playerNameInput');
-                if (input.value.trim()) { $scope.playerName = input.value.trim(); localStorage.setItem('runner_name', $scope.playerName); $scope.gameState = 'START'; }
+                const val = document.getElementById('playerNameInput').value.trim();
+                if (val) { $scope.playerName = val; localStorage.setItem('runner_name', val); $scope.gameState = 'START'; }
             };
 
             function initGame() {
-                $scope.hp = 100; $scope.score = 0; $scope.level = 1; gameSpeed = 6;
-                obstacles = []; player.y = 300; player.dy = 0; frameCount = 0;
+                $scope.hp = 100; $scope.score = 0; $scope.level = 1; gameSpeed = 7;
+                $scope.invincibleTimer = 0; $scope.scoreMult = 1; $scope.hasRollback = false; $scope.isOffWork = false;
+                obstacles = []; items = []; player.y = 380; player.dy = 0; frameCount = 0;
                 $scope.updateLevel();
             }
 
@@ -364,229 +253,135 @@ window.fb = {
                 let text = "";
                 const isBoss = Math.random() < 0.28;
                 const isSlide = !isBoss && Math.random() < 0.35;
-
                 if ($scope.level <= 6) {
-                    // 기존 IT 업무 리스트
-                    text = isBoss ? BOSS_LIST[Math.floor(Math.random() * BOSS_LIST.length)] : 
-                          (isSlide ? SLIDE_LIST[Math.floor(Math.random() * SLIDE_LIST.length)] : 
-                           JUMP_LIST[Math.floor(Math.random() * JUMP_LIST.length)]);
+                    text = isBoss ? BOSS_LIST[Math.floor(Math.random() * BOSS_LIST.length)] : (isSlide ? SLIDE_LIST[Math.floor(Math.random() * SLIDE_LIST.length)] : JUMP_LIST[Math.floor(Math.random() * JUMP_LIST.length)]);
                 } else if ($scope.level <= 8) {
-                    // CEO / 프리랜서 단계 장애물
-                    const CEO_LIST = ["투자 유치 실패", "임대료 미납", "직원 집단 퇴사", "세무조사 착수", "경쟁사 카피캣", "서버 비용 폭탄", "외주비 미수금"];
-                    text = CEO_LIST[Math.floor(Math.random() * CEO_LIST.length)];
+                    text = ["투자 실패", "임대료 미납", "직원 퇴사", "세무조사", "서버 폭탄"][Math.floor(Math.random() * 5)];
                 } else {
-                    // 치킨집 / 자연인 단계 장애물
-                    const LIFE_LIST = ["배달앱 수수료", "닭고기값 폭등", "리뷰 별점 1점", "기름 교체 타이밍", "멧돼지 출몰", "폭우로 고립", "등산객 길안내"];
-                    text = LIFE_LIST[Math.floor(Math.random() * LIFE_LIST.length)];
+                    text = ["배달 수수료", "닭값 폭등", "별점 1점", "기름 교체", "멧돼지 출몰"][Math.floor(Math.random() * 5)];
                 }
                 ctx.font = "bold 16px 'Malgun Gothic'";
-                const boxWidth = ctx.measureText(text).width + 30;
-                obstacles.push({ x: canvas.width + 50, y: isSlide ? 230 : (isBoss ? 210 : 310), w: boxWidth, h: isBoss ? 130 : 50, text: text, isBoss, isSlide, speed: gameSpeed, dmg: isBoss ? 35 : 15 });
+                const boxWidth = ctx.measureText(text).width + 35;
+                obstacles.push({ x: 1000, y: isSlide ? 310 : (isBoss ? 280 : 390), w: boxWidth, h: isBoss ? 130 : 50, text: text, isBoss, isSlide, speed: gameSpeed, dmg: isBoss ? 35 : 15 });
+            }
+
+            function spawnItem() {
+                const type = Math.random() < 0.05 ? ITEM_TYPES[8] : ITEM_TYPES[Math.floor(Math.random() * 8)];
+                items.push({ x: 1000, y: 180 + Math.random() * 120, w: 50, h: 50, type: type, speed: gameSpeed });
+            }
+
+            function applyItem(type) {
+                $scope.currentTask = type.msg;
+                switch(type.effect) {
+                    case "COFFEE": $scope.hp = Math.min(100, $scope.hp + 20); gameSpeed *= 0.9; break;
+                    case "HALFDAY": $scope.invincibleTimer = 180; break;
+                    case "ANNUAL": $scope.hp = 100; obstacles = []; break;
+                    case "GPT": $scope.score += 50; break;
+                    case "BONUS_TIME": $scope.scoreMult = 2; $timeout(() => { $scope.scoreMult = 1; }, 7000); break;
+                    case "ROLLBACK": $scope.hasRollback = true; break;
+                    case "MONEY": $scope.score += 100; break;
+                    case "DINNER": 
+                        if(Math.random() < 0.5) { $scope.hp = Math.min(100, $scope.hp + 30); }
+                        else { $scope.hp -= 20; $scope.currentTask = "2차까지 감... 체력 저하"; }
+                        break;
+                    case "OFFWORK": $scope.isOffWork = true; $scope.invincibleTimer = 600; $timeout(() => { $scope.isOffWork = false; }, 10000); break;
+                }
             }
 
             function update() {
                 if ($scope.gameState !== 'PLAYING') return;
+                if ($scope.invincibleTimer > 0) $scope.invincibleTimer--;
 
-                player.dy += player.gravity; 
-                player.y += player.dy;
-                
-                const groundY = player.isSliding ? 330 : 305;
-                if (player.y > groundY) { 
-                    player.y = groundY; 
-                    player.dy = 0; 
-                    player.jumpCount = 0; 
-                }
+                player.dy += player.gravity; player.y += player.dy;
+                const groundY = player.isSliding ? 415 : 380;
+                if (player.y > groundY) { player.y = groundY; player.dy = 0; player.jumpCount = 0; }
 
-                // 장애물 처리 루프
+                // 장애물 처리
                 for (let i = obstacles.length - 1; i >= 0; i--) {
-                    let o = obstacles[i]; 
-                    o.x -= o.speed;
-
+                    let o = obstacles[i]; o.x -= o.speed;
                     const hitboxY = player.isSliding ? player.y + 20 : player.y;
-                    const hitboxH = player.isSliding ? 20 : 55;
-
-                    // 1. 충돌 체크
-                    if (player.x < o.x + o.w && player.x + 30 > o.x && hitboxY < o.y + o.h && hitboxY + hitboxH > o.y) {
-                        $scope.hp -= o.dmg; 
-                        $scope.lastWords = o.text; 
-                        obstacles.splice(i, 1);
-                        if ($scope.hp <= 0) gameOver();
-                        // 충돌 시에는 값이 많이 바뀌므로 즉시 반영
-                        $scope.$applyAsync(); 
-                        continue;
+                    if ($scope.invincibleTimer <= 0 && player.x < o.x + o.w && player.x + 35 > o.x && hitboxY < o.y + o.h && hitboxY + 60 > o.y) {
+                        $scope.hp -= o.dmg; $scope.lastWords = o.text; obstacles.splice(i, 1);
+                        if ($scope.hp <= 0) {
+                            if($scope.hasRollback) { $scope.hp = 1; $scope.hasRollback = false; $scope.currentTask = "🚨 긴급 롤백 발동! 생존했습니다."; }
+                            else { gameOver(); }
+                        }
+                        $scope.$applyAsync(); continue;
                     }
-
-                    // 2. 점수 획득 체크 (장애물이 화면 왼쪽으로 완전히 사라졌을 때)
                     if (o.x + o.w < 0) {
                         $scope.currentTask = (o.isBoss ? "🔥 " : "✅ ") + o.text + " 완료!";
-                        obstacles.splice(i, 1); 
-                        
-                        // 점수 증가!!
-                        $scope.score += 10; 
-
-                        // 레벨업 로직
+                        obstacles.splice(i, 1); $scope.score += (10 * $scope.scoreMult);
                         if ($scope.score > 0 && $scope.score % 100 === 0) {
-                            if ($scope.level < levelData.length) {
-                                // 다음 단계 발령
-                                $scope.gameState = 'PROMOTION';
-                                $scope.level++;
-                                gameSpeed += 2.0; 
-                                $scope.updateLevel();
-                            } else {
-                                // 만렙 이후 (무한 단계)
-                                $scope.currentTask = "✨ 해탈: 모든 업무가 무의미해집니다 (난이도 급상승)";
-                                gameSpeed += 1.5;
-                            }
+                            if ($scope.level < levelData.length) { $scope.gameState = 'PROMOTION'; $scope.level++; gameSpeed += 1.5; $scope.updateLevel(); }
+                            else { gameSpeed += 1.0; }
                         }
-                        
-                        // [중요] 점수가 올랐으니 화면을 갱신하라고 Angular에 알려줌
-                        $scope.$applyAsync(); 
+                        $scope.$applyAsync();
                     }
                 }
 
-                // 장애물 생성 타이밍
-                let spawnInterval = Math.max(35, 90 - ($scope.level * 8));
-                if (frameCount % spawnInterval === 0) spawnObstacle();
+                // 아이템 처리
+                for (let i = items.length - 1; i >= 0; i--) {
+                    let it = items[i]; it.x -= it.speed;
+                    if (player.x < it.x + it.w && player.x + 35 > it.x && player.y < it.y + it.h && player.y + 60 > it.y) {
+                        applyItem(it.type); items.splice(i, 1); $scope.$applyAsync();
+                    } else if (it.x + it.w < 0) items.splice(i, 1);
+                }
 
-                frameCount++; 
-                draw(); 
-                animationId = requestAnimationFrame(update);
+                let spawnInterval = Math.max(35, 90 - ($scope.level * 7));
+                if (frameCount % spawnInterval === 0) spawnObstacle();
+                if (frameCount % 300 === 0) spawnItem();
+
+                frameCount++; draw(); animationId = requestAnimationFrame(update);
             }
 
             function draw() {
-                    const d = levelData[Math.min($scope.level - 1, levelData.length - 1)];
-                    ctx.fillStyle = d.bg; 
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    // 바닥
-                    ctx.fillStyle = "#34495e"; 
-                    ctx.fillRect(0, 360, canvas.width, 40);
+                const d = levelData[Math.min($scope.level - 1, 9)];
+                ctx.fillStyle = $scope.isOffWork ? "#E67E22" : d.bg; 
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#34495e"; ctx.fillRect(0, 440, canvas.width, 60);
 
-                    // --- [플레이어 캐릭터 그리기 시작] ---
-                    const px = player.x;
-                    const py = player.y;
-                    const isJumping = player.y < 300 && !player.isSliding;
-                    const legMove = isJumping ? 5 : Math.sin(frameCount * 0.2) * 12;
-                    const armMove = isJumping ? -5 : Math.sin(frameCount * 0.2) * 10;
+                const px = player.x, py = player.y;
+                const isJumping = player.y < 380 && !player.isSliding;
+                const legMove = isJumping ? 5 : Math.sin(frameCount * 0.2) * 12;
+                
+                if ($scope.invincibleTimer > 0 && frameCount % 10 < 5) ctx.globalAlpha = 0.4;
+                ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
 
-                    // 공통 스타일 설정
-                    ctx.strokeStyle = "#ffffff"; // 흰색 외곽선으로 가독성 확보
-                    ctx.lineWidth = 1.5;
-                    ctx.lineJoin = "round";
+                if (!player.isSliding) {
+                    ctx.fillStyle = "#2c3e50"; ctx.fillRect(px + 4, py + 35, 10, 20 + (isJumping ? 0 : legMove));
+                    ctx.fillStyle = "#34495e"; ctx.fillRect(px, py + 12, 30, 25); ctx.strokeRect(px, py + 12, 30, 25);
+                    ctx.fillStyle = "#ffdbac"; ctx.fillRect(px + 5, py - 7, 20, 20); ctx.strokeRect(px + 5, py - 7, 20, 20);
+                } else {
+                    ctx.fillStyle = "#2c3e50"; ctx.fillRect(px - 15, py + 40, 45, 12);
+                    ctx.fillStyle = "#34495e"; ctx.fillRect(px, py + 25, 35, 20); ctx.strokeRect(px, py + 25, 35, 20);
+                    ctx.fillStyle = "#ffdbac"; ctx.fillRect(px + 10, py + 22, 18, 18);
+                }
+                ctx.globalAlpha = 1.0;
 
-                    if (!player.isSliding) {
-                        // [1. 뒤쪽 팔]
-                        ctx.fillStyle = "#1a252f"; // 몸통보다 조금 어두운 색
-                        ctx.fillRect(px + 20 - armMove, py + 15, 8, 15);
-                        ctx.strokeRect(px + 20 - armMove, py + 15, 8, 15);
-
-                        // [2. 다리]
-                        ctx.fillStyle = "#2c3e50";
-                        // 왼쪽 다리
-                        ctx.fillRect(px + 4, py + 35, 10, 20 + (isJumping ? 0 : legMove));
-                        ctx.strokeRect(px + 4, py + 35, 10, 20 + (isJumping ? 0 : legMove));
-                        // 오른쪽 다리
-                        ctx.fillRect(px + 16, py + 35, 10, 20 + (isJumping ? 0 : -legMove));
-                        ctx.strokeRect(px + 16, py + 35, 10, 20 + (isJumping ? 0 : -legMove));
-
-                        // [3. 몸통]
-                        ctx.fillStyle = "#34495e";
-                        ctx.fillRect(px, py + 12, 30, 25);
-                        ctx.strokeRect(px, py + 12, 30, 25);
-
-                        // [4. 셔츠 & 넥타이]
-                        ctx.fillStyle = "#fff";
-                        ctx.fillRect(px + 12, py + 12, 6, 10);
-                        ctx.fillStyle = "#e74c3c"; // 빨간 넥타이 (포인트라 외곽선 제외)
-                        ctx.fillRect(px + 14, py + 15, 2, 8 + Math.abs(armMove));
-
-                        // [5. 앞쪽 팔]
-                        ctx.fillStyle = "#34495e";
-                        ctx.fillRect(px - 5 + armMove, py + 15, 8, 15);
-                        ctx.strokeRect(px - 5 + armMove, py + 15, 8, 15);
-
-                        // [6. 머리 - 가장 마지막에 그려서 위로 오게 함]
-                        ctx.fillStyle = "#ffdbac";
-                        const headY = py - 7 + (isJumping ? -2 : Math.sin(frameCount * 0.4) * 2);
-                        ctx.fillRect(px + 5, headY, 20, 20);
-                        ctx.strokeRect(px + 5, headY, 20, 20);
-                        // 머리카락
-                        ctx.fillStyle = "#222";
-                        ctx.fillRect(px + 5, headY - 3, 20, 7);
-
-                    } else {
-                        // [슬라이딩 상태]
-                        
-                        // 1. 쭉 뻗은 다리
-                        ctx.fillStyle = "#2c3e50";
-                        ctx.fillRect(px - 15, py + 40, 45, 12);
-                        ctx.strokeRect(px - 15, py + 40, 45, 12);
-                        
-                        // 2. 뒤로 누운 몸통
-                        ctx.save();
-                        ctx.translate(px, py + 35);
-                        ctx.rotate(-Math.PI / 5); 
-                        ctx.fillStyle = "#34495e";
-                        ctx.fillRect(0, -20, 35, 20);
-                        ctx.strokeRect(0, -20, 35, 20);
-                        
-                        // 3. 와이셔츠 포인트
-                        ctx.fillStyle = "#fff";
-                        ctx.fillRect(5, -20, 6, 8);
-                        ctx.restore();
-
-                        // 4. 머리 (몸통보다 나중에 그려서 겹침 방지)
-                        ctx.fillStyle = "#ffdbac";
-                        ctx.fillRect(px + 10, py + 22, 18, 18);
-                        ctx.strokeRect(px + 10, py + 22, 18, 18);
-                        ctx.fillStyle = "#222";
-                        ctx.fillRect(px + 10, py + 20, 18, 6);
-                    }
-
-                // 장애물
                 obstacles.forEach(o => {
                     ctx.fillStyle = o.isBoss ? "#e74c3c" : (o.isSlide ? "#f1c40f" : "#fff");
-                    ctx.fillRect(o.x, o.y, o.w, o.h);
-                    ctx.strokeStyle = "#000"; ctx.strokeRect(o.x, o.y, o.w, o.h);
-                    ctx.fillStyle = (o.isBoss) ? "#fff" : "#000";
-                    ctx.font = "bold 15px 'Malgun Gothic'"; ctx.textAlign = "center";
-                    ctx.fillText(o.text, o.x + o.w/2, o.y + o.h/2 + 5);
+                    ctx.fillRect(o.x, o.y, o.w, o.h); ctx.strokeStyle = "#000"; ctx.strokeRect(o.x, o.y, o.w, o.h);
+                    ctx.fillStyle = o.isBoss ? "#fff" : "#000"; ctx.font = "bold 15px 'Malgun Gothic'"; ctx.textAlign = "center";
+                    ctx.fillText(o.text, o.x + o.w / 2, o.y + o.h / 2 + 5);
                 });
-                
+
+                items.forEach(it => {
+                    ctx.fillStyle = it.type.color; ctx.beginPath(); ctx.arc(it.x + 25, it.y + 25, 25, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = "#fff"; ctx.font = "25px Arial"; ctx.textAlign = "center";
+                    ctx.fillText(it.type.icon, it.x + 25, it.y + 35);
+                });
             }
+
             function gameOver() {
-
-                $scope.gameState = 'GAMEOVER';
-            
-                cancelAnimationFrame(animationId);
-            
-                saveRanking(
-                    $scope.playerName,
-                    $scope.score
-                );
-            
-                setTimeout(() => {
-                    loadRankings();
-                }, 1000);
+                $scope.gameState = 'GAMEOVER'; cancelAnimationFrame(animationId);
+                saveRanking($scope.playerName, $scope.score);
+                setTimeout(() => { loadRankings(); }, 1000);
             }
 
-            // function gameOver() {
-            //     $scope.gameState = 'GAMEOVER'; cancelAnimationFrame(animationId);
-            //     $scope.rankings.push({ name: $scope.playerName, score: $scope.score });
-            //     $scope.rankings.sort((a, b) => b.score - a.score);
-            //     localStorage.setItem('runner_rankings', JSON.stringify($scope.rankings.slice(0, 10)));
-            // }
-
-            // --- 컨트롤 로직 (키보드 + 터치) ---
-            const handleJump = () => {
-                if ($scope.gameState === 'PLAYING' && player.jumpCount < 2) {
-                    player.dy = -player.jumpPower; player.jumpCount++; player.isSliding = false;
-                }
-            };
+            const handleJump = () => { if ($scope.gameState === 'PLAYING' && player.jumpCount < 2) { player.dy = -player.jumpPower; player.jumpCount++; player.isSliding = false; } };
             const handleSlideStart = () => { if ($scope.gameState === 'PLAYING') player.isSliding = true; };
             const handleSlideEnd = () => { player.isSliding = false; };
 
-            // 키보드
             window.addEventListener('keydown', e => {
                 if (e.code === 'Enter') {
                     if ($scope.gameState === 'START' || $scope.gameState === 'GAMEOVER') $scope.$apply(() => $scope.startGame());
@@ -594,23 +389,16 @@ window.fb = {
                 }
                 if (e.code === 'Space') handleJump();
                 if (e.code === 'ArrowDown') handleSlideStart();
+                if (['Space', 'ArrowDown', 'ArrowUp', 'Enter'].includes(e.code)) e.preventDefault();
             });
             window.addEventListener('keyup', e => { if (e.code === 'ArrowDown') handleSlideEnd(); });
 
-            // 터치 (Canvas 영역 분할 조작)
             canvas.addEventListener('touchstart', e => {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const rect = canvas.getBoundingClientRect();
-                const touchX = (touch.clientX - rect.left) / rect.width; // 0 ~ 1 사이 비율
-
-                if (touchX < 0.5) handleJump();      // 화면 왼쪽: 점프
-                else handleSlideStart();            // 화면 오른쪽: 슬라이딩
+                e.preventDefault(); const touch = e.touches[0]; const rect = canvas.getBoundingClientRect();
+                const touchX = (touch.clientX - rect.left) / rect.width;
+                if (touchX < 0.5) handleJump(); else handleSlideStart();
             }, { passive: false });
-
-            canvas.addEventListener('touchend', e => {
-                handleSlideEnd(); // 터치 떼면 무조건 슬라이딩 해제
-            }, { passive: false });
+            canvas.addEventListener('touchend', e => { handleSlideEnd(); }, { passive: false });
         });
     </script>
 </body>
